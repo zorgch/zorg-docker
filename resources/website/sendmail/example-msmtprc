@@ -1,0 +1,20 @@
+# PHP-sendmail replacement docu: https://wiki.archlinux.org/title/Msmtp#Send_mail_with_PHP_using_msmtp
+
+# Set default values for all following accounts.
+# - "add_missing_date_header": Automatically adds a Date: header if missing
+# - "set_from_header": prevent sender spoofing by ennsuring From: matches the account's setting
+defaults
+auth                     off
+auto_from                off
+add_missing_date_header  on
+set_from_header          off
+tls                      off
+logfile /var/log/msmtp/msmtp.log
+
+account         docker
+host            smtp.zorg.dev
+port            25
+from            info@zdocker.dev
+
+# Set a default account
+account default : docker

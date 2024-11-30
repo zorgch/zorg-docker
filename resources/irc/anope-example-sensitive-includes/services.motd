@@ -1,0 +1,23 @@
+Welcome to the zorg.ch IRC!
+
+Available Services:
+- NickServ: Manage your nickname registration
+- ChanServ: Channel management and protection
+- MemoServ: Send offline messages to users
+- HostServ: Request a custom virtual host
+
+Quick Start:
+1. Register your nick:    /msg NickServ REGISTER password email
+2. Register a channel:    /msg ChanServ REGISTER #channel
+3. Get channel operator:  /msg ChanServ OP #channel
+
+Need help?
+Contact IRC Operators:
+- keep3r (Network Admin)
+- inex (Server Admin)
+
+or Type:
+/msg NickServ HELP
+/msg ChanServ HELP
+
+For more information visit: https://zorg.ch/forum.php
