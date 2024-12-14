@@ -15,7 +15,7 @@ zorg on Docker
 
 [🏁 Getting started](#-getting-started)
 - [Initial setup (one time only)](#initial-setup-one-time-only)
-- [⏩ Update the local cloned `zorg-docker` git repository](#-update-the-local-cloned-zorg-docker-git-repository)
+- [⏩ Update the cloned `zorg-docker` git repository](#-update-the-local-cloned-zorg-docker-git-repository)
 
 [👨‍💻 Docker services](#-docker-services)
 - [Manage general services](#manage-general-services)
@@ -29,6 +29,7 @@ zorg on Docker
 - [🧪 Debugging Docker Services](#-debugging-docker-services)
 - [🏷️ Docker services -> profiles mapping](#-docker-services---profiles-mapping)
 - [📄 The `/zorg-docker/resources`-directory & files](#-the-zorg-dockerresources-directory--files)
+- [💿 Import/export SQL-dumps with MariaDB](#-importexport-sql-dumps-with-mariadb)
 
 <br>
 
@@ -132,7 +133,7 @@ In general make sure to work from the project root directory:
 git clone -b <branch-name> --depth 1 https://github.com/zorgch/zorg-docker.git ./zorg-docker
 ```
 
-> [!INFO]
+> [!NOTE]
 > See below section for how to UPDATE the cloned git repository to get its latest changes.
 
 ##### Copy the example `.env`-file
@@ -171,12 +172,12 @@ docker compose --profile setup up
 
 #### 📧 Mailserver (SMTP) configuration
 
-> [!INFO]
+> [!NOTE]
 > This requires the mailserver service to be running!
 
 ##### Add postfix accounts & email forwarding
 
-> [!NOTE]
+> [!TIP]
 > This is required when emails to a local user (alias) should be forwarded to an external email address corresponding to that alias.
 
 ```
@@ -242,7 +243,7 @@ git pull --depth 1 --rebase
 docker compose --profile all up -d
 ```
 
-* Applicable services: `dashboard`, `reverseproxy`, `waf`, `website`, `db`, `postfix-smtp`, `irc`, `irc-quizbot`, `stockticker`
+* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `waf`, `website`, `db`, `postfix-smtp`, `irc`, `irc-quizbot`, `stockticker`
 </details>
 
 <details>
@@ -251,7 +252,7 @@ docker compose --profile all up -d
 ```bash
 docker compose --profile webserver up -d
 ```
-* Applicable services: `dashboard`, `reverseproxy`, `waf`, `website`, `db`, `postfix-smtp`
+* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `waf`, `website`, `db`, `postfix-smtp`
 </details>
 
 <details>
@@ -260,8 +261,20 @@ docker compose --profile webserver up -d
 ```bash
 docker compose --profile irc up -d
 ```
-* Applicable services: `dashboard`, `irc`, `irc-quizbot`
+* Applicable services: `servicealerts`, `dashboard`, `irc`, `irc-quizbot`
 </details>
+
+<details>
+<summary>Example 2: only the Mailserver services</summary>
+
+```bash
+docker compose --profile mailserver up -d
+```
+* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `postfix-smtp`
+</details>
+
+> [!CAUTION]
+> Do not take an individual service *down* using `--profile`, target it specifically instead!<br>`docker compose reverseproxy-waf down`
 
 <br>
 
@@ -269,7 +282,8 @@ docker compose --profile irc up -d
 <sup>*</sup> As provisioning a KeePass KDBX via SFTP is not required for the general website hosting, the SFTP service (`keepass`) is separated from the overall services.
 
 ```bash
-docker compose --profile sftp up -d
+docker compose --profile keepass up -d
+docker compose sftp down
 ```
 
 <br>
@@ -279,6 +293,7 @@ docker compose --profile sftp up -d
 
 ```bash
 docker compose --profile quake up -d
+docker compose quake3 down
 ```
 
 <br>
@@ -288,6 +303,7 @@ docker compose --profile quake up -d
 
 ```bash
 docker compose --profile docu up
+# exits automatically
 ```
 
 <br>
@@ -344,19 +360,19 @@ The `docker-compose.yml` file uses Docker Service-profiles to group services int
 
 Some single services have their own profile, in order to prevent them from starting/stopping when using `docker compose` without any `--profile`.
 
-> [!NOTE]
+> [!TIP]
 > Multiple profiles can be combined: `docker compose --profile website --profile irc up`
 
 | Profile        | Applicablae Docker Services   | Example Usage                      |
 | -------------- | ----------------------------- | ---------------------------------- |
 | `all`          | All general services          | `--profile all`                    |
-| `setup`        | `sslcerts` `postfix-smtp`    | `--profile setup`                  |
-| `status`       | `dashboard` `reverseproxy`    | `--profile status`                 |
-| `webserver`    | `dashboard` `reverseproxy` `waf` `website` `db` `postfix-smtp` | `--profile webserver` |
-| `mailserver`   | `dashboard` `reverseproxy` `postfix-smtp` | `--profile mailserver`             |
-| `irc`          | `dashboard` `irc` `irc-quizbot`           | `--profile irc`                    |
-| `sftp`         | `dashboard` `keepass`                     | `--profile sftp`                   |
-| `quake`        | `dashboard` `quake3`                      | `--profile quake`                  |
+| `setup`        | `sslcerts` `postfix-smtp`     | `--profile setup`                  |
+| `status`       | `servicealerts` `dashboard` `reverseproxy`    | `--profile status` |
+| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `waf` `website` `db` `postfix-smtp` | `--profile webserver` |
+| `mailserver`   | `servicealerts` `dashboard` `reverseproxy` `postfix-smtp` | `--profile mailserver` |
+| `irc`          | `servicealerts` `dashboard` `irc` `irc-quizbot`           | `--profile irc`        |
+| `keepass`      | `servicealerts` `dashboard` `sftp`                        | `--profile keepass`    |
+| `quake`        | `servicealerts` `dashboard` `quake3`                      | `--profile quake`      |
 | `docu`         | `phpdoc`                      | `--profile docu`                   |
 | Single service | e.g. `stockticker`            | `docker compose up -d stockticker` |
 
@@ -379,6 +395,21 @@ Contains site specific resources that are actively mapped from the Host to some 
 
 ### 🔁 `logrotate` must be done on the Host
 The Docker services are just writing logs to the mapped `/logs`-directory, but `logrotate` must be configured on the Host machine.
+
+<br>
+
+### 💿 Import/export SQL-dumps with MariaDB
+A third-party SQL Manager (e.g. on macOS use [SequelAce](https://sequel-ace.com)) or CLI application is required to connect to the MariaDB service under the specified host and port.
+
+#### Import an SQL dump
+```bash
+mysql -h <db.host.domain> -P 3306 -u MYSQL_USER -p MYSQL_DATABASE < /path/to/import-dump.sql
+```
+
+#### Export an SQL dump via CLI
+```bash
+mysqldump -h <db.host.domain> -P 3306 -u MYSQL_USER -p MYSQL_DATABASE > /path/to/save-dump.sql
+```
 
 <br><br>
 

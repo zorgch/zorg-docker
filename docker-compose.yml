@@ -53,11 +53,13 @@ services:
     # 📊 Docker Services Insights
     #----------------------------
     dashboard:
-        profiles: [ "all", "status", "webserver", "mailserver", "irc", "quake", "sftp" ]
+        profiles: [ "all", "status", "webserver", "mailserver", "irc", "quake", "keepass" ]
         image: portainer/portainer-ce
         platform: ${OS_PLATFORM:-linux/arm64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-dashboard
         restart: unless-stopped
+        depends_on:
+            - servicealerts
         cpus: "${REVERSEPROXY_CPU:-0.5}"
         mem_limit: "${REVERSEPROXY_MEMORY:-512m}"
         security_opt:
@@ -69,6 +71,9 @@ services:
             - 9000
             - 9443
         labels:
+            - "telegram-notifier.monitor=true"
+            - "telegram-notifier.service-uri=${DASHBOARD_HOST:+https://${DASHBOARD_HOST}.${DOMAINNAME}}"
+            # Enable reverse-proxy routing
             - "traefik.enable=true"
             - "traefik.http.routers.portainer.tls=true"
             - "traefik.http.routers.portainer.tls.certresolver=${USE_LETSENCRYPT:+letsencrypt}"
@@ -107,6 +112,8 @@ services:
             - "${MAILSERVER_PORT_SMTP_SSL:-465}:465"
             - "${XDEBUG_PORT:-9003}:9003"
         labels:
+            - "telegram-notifier.monitor=true"
+            # Enable
             - "traefik.enable=true"
             # -=[ traefik Plugin: owasp/modsecurity-crs ]=-
             - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.maxbodysize=524288000"
@@ -168,6 +175,8 @@ services:
         platform: ${OS_PLATFORM:-linux/arm64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-waf
         restart: unless-stopped
+        depends_on:
+            - reverseproxy
         cpus: "${WAF_CPU:-0.5}"
         mem_limit: "${WAF_MEMORY:-512m}"
         security_opt:
@@ -225,6 +234,9 @@ services:
             timeout: 5s
             retries: 10
         labels:
+            - "telegram-notifier.monitor=true"
+            - "telegram-notifier.service-uri=${DOMAINNAME:+https://${DOMAINNAME}}:${HTTPS_PORT:-443}}"
+            # Enable reverse-proxy routing
             - "traefik.enable=true"
             # -=[ Service ports (the container is listening on) ]=-
             - "traefik.http.routers.main.service=main-service"
@@ -312,6 +324,7 @@ services:
         mem_limit: "${MARIADB_MEMORY:-2560m}"
         security_opt:
             - "no-new-privileges:true"
+        hostname: ${MARIADB_HOST:+${MARIADB_HOST}.${DOMAINNAME}}
         networks:
             - the-grid
         ports:
@@ -322,6 +335,9 @@ services:
             interval: 10s
             timeout: 3s
             retries: 5
+        labels:
+            - "telegram-notifier.monitor=true"
+            - "telegram-notifier.service-uri=${MARIADB_HOST:+${MARIADB_HOST}.${DOMAINNAME}:${MARIADB_PORT:-3306}}"
         environment:
             # 📖 HOWTO https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/
             - MARIADB_EXTRA_FLAGS=${MARIADB_MYSQLD_OPTIONS:---skip-grant-tables}
@@ -377,6 +393,8 @@ services:
             timeout: 3s
             retries: 5
         labels:
+            - "telegram-notifier.monitor=true"
+            - "telegram-notifier.service-uri=${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}:${MAILSERVER_PORT_SMTP_SSL:-465}}"
             # 📖 HOWTO See docker-mailserver.github.io/docker-mailserver/v14.0/examples/tutorials/mailserver-behind-proxy/
             - "traefik.enable=true"
             # -=[ SMTP with STARTTLS (587) ]=-
@@ -451,6 +469,9 @@ services:
             - "${IRC_PORT:-6667}:6667"
         ports:
             - "${IRC_PORT_SSL:-6697}:6697"
+        labels:
+            - "telegram-notifier.monitor=true"
+            - "telegram-notifier.service-uri=${IRC_HOST:+irc://${IRC_HOST}.${DOMAINNAME}:${IRC_PORT_SSL:-6697}}"
         environment:
             - TERM=xterm
             - HOME=/home/ircd
@@ -487,6 +508,9 @@ services:
             - "no-new-privileges:true"
         networks:
             - information-superhighway
+        labels:
+            - "telegram-notifier.monitor=true"
+            - "telegram-notifier.service-uri=/join #quiz"
         environment:
             - TZ=${TIMEZONE:-Europe/Zurich}
             - NICKSERV_PASSWORD=${IRC_QUIZBOT_PASSWORD:-false}
@@ -506,6 +530,8 @@ services:
         mem_limit: "${MICROSERVICE_MEMORY:-32m}"
         security_opt:
             - "no-new-privileges:true"
+        labels:
+            - "telegram-notifier.monitor=true"
         environment:
             - TZ=${TIMEZONE:-Europe/Zurich}
             - STOCK_TICKERS=${STOCKTICKER_SYMBOLS:?Error STOCKTICKER_SYMBOLS is required}
@@ -517,11 +543,33 @@ services:
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/python/stockticker/service-setup.sh:/usr/local/bin/setup.sh"
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/python/stockticker/stock_notifications.py:/usr/src/stock_notifications.py"
 
+    # --- 🚨 Docker Service Notifications ---
+    servicealerts:
+        profiles: [ "all", "status", "webserver", "mailserver", "irc", "quake", "keepass" ]
+        image: lorcas/docker-telegram-notifier:latest
+        platform: ${OS_PLATFORM:-linux/arm64}
+        container_name: ${COMPOSE_PROJECT_NAME:-docker}-notifier
+        restart: unless-stopped
+        stop_grace_period: 60s
+        cpus: "${MICROSERVICE_CPU:-0.25}"
+        mem_limit: "${MICROSERVICE_MEMORY:-128m}"
+        security_opt:
+            - "no-new-privileges:true"
+        environment:
+            # ℹ️ Notifications only from whitelisted containers: "labels: telegram-notifier.monitor=true"
+            ONLY_WHITELIST: true
+            TELEGRAM_NOTIFIER_BOT_TOKEN: ${TELEGRAM_BOT_SERVICEALERTS_TOKEN:-}
+            TELEGRAM_NOTIFIER_CHAT_ID: ${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}
+            TELEGRAM_NOTIFIER_TOPIC_ID: ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}
+        volumes:
+            - "/var/run/docker.sock:/var/run/docker.sock:ro"
+            - "${HOST_PATH_TELEGRAM_STATUSMESSAGES_CONFIG:-${HOST_DOCKER_WORKING_DIR}/resources/telegram-notifier/messages.js}:/usr/src/app/templates.js:ro"
+
     #--------------
     # 🔑 KeePass DB
     #--------------
     sftp:
-        profiles: [ "sftp" ]
+        profiles: [ "keepass" ]
         image: atmoz/sftp:alpine
         platform: linux/x86_64 # ℹ️ Has no arm64 support
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-keepass
@@ -541,6 +589,9 @@ services:
         hostname: ${KEEPASS_HOST:+${KEEPASS_HOST}.${DOMAINNAME}}
         ports:
             - "${KEEPASS_PORT_SFTP:-22}:22"
+        labels:
+            - "telegram-notifier.monitor=true"
+            - "telegram-notifier.service-uri=${KEEPASS_HOST:+sftp://${KEEPASS_HOST}.${DOMAINNAME}:${KEEPASS_PORT_SFTP:-22}}"
         command: "${KEEPASS_SFTP_USER:-keepass}:${KEEPASS_SFTP_PASSWORD:-}:1001"
         volumes:
             - "${HOST_PATH_KEEPASS_FILE:?Error KEEPASS_FILE is required}:/home/${KEEPASS_SFTP_USER:-keepass}/${KEEPASS_KDBX_FILENAME:-database.kdbx}"
@@ -570,8 +621,11 @@ services:
         hostname: ${QUAKE3_HOST:+${QUAKE3_HOST}.${DOMAINNAME}}
         ports:
             - "${QUAKE3_PORT:-27960}:27960/udp"
+        labels:
+            - "telegram-notifier.monitor=true"
+            - "telegram-notifier.service-uri=${QUAKE3_HOST:+quake3://${QUAKE3_HOST}.${DOMAINNAME}:${QUAKE3_PORT:-27960}}"
         tty: true
-        command: "+map q3dm6" # ℹ️ NOTE Without this, the quake3-Server will not go on!
+        command: "+map q3dm6" # ℹ️ NOTE Without using "+map q3xx", the quake3-Server will not be ready!
         volumes:
             - "${HOST_PATH_LOGS:-./logs}/quake3-server:/home/ioq3srv/.q3a/baseq3/logs"
             - "${HOST_PATH_QUAKE3_BASEQ3:?Error HOST_PATH_QUAKE3_BASEQ3 is required}:/home/ioq3srv/.q3a/baseq3"
