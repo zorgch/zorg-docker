@@ -19,17 +19,18 @@ zorg on Docker
 
 [👨‍💻 Docker services](#-docker-services)
 - [Manage general services](#manage-general-services)
-    - [Single «KeePass SFTP» service](#run-the-keepass-sftp-service-separately)
-    - [Single «Quake 3 Arena Server»](#run-the-quake-3-arena-server-separately)
-    - [Single «phpDocumentor» service](#run-the-phpdocumentor-service-separately)
+  - [Single «KeePass SFTP» service](#run-the-keepass-sftp-service-separately)
+  - [Single «Quake 3 Arena Server»](#run-the-quake-3-arena-server-separately)
+  - [Single «phpDocumentor» service](#run-the-phpdocumentor-service-separately)
+  - [🏷️ Docker services -> profiles mapping](#-docker-services---profiles-mapping)
 - [🩺 Resource usage & services health](#docker-resource-usage---services-health)
 
 
 [👨‍🏫 Explanations](#-explanations)
 - [🧪 Debugging Docker Services](#-debugging-docker-services)
-- [🏷️ Docker services -> profiles mapping](#-docker-services---profiles-mapping)
 - [📄 The `/zorg-docker/resources`-directory & files](#-the-zorg-dockerresources-directory--files)
 - [💿 Import/export SQL-dumps with MariaDB](#-importexport-sql-dumps-with-mariadb)
+- [💾 Docker mages](#-docker-images)
 
 <br>
 
@@ -306,6 +307,32 @@ docker compose --profile docu up
 # exits automatically
 ```
 
+### 🏷️ Docker services -> profiles mapping
+The `docker-compose.yml` file uses Docker Service-profiles to group services into logical groups.
+
+* This allows to only start / stop a certain group of services at once.
+* Yet individual docker services can still be targeted individually by referencing their service name.
+
+Some single services have their own profile, in order to prevent them from starting/stopping when using `docker compose` without any `--profile`.
+
+> [!TIP]
+> Multiple profiles can be combined: `docker compose --profile website --profile irc up`
+
+| Profile        | Applicablae Docker Services   | Example Usage                      |
+| -------------- | ----------------------------- | ---------------------------------- |
+| `all`          | All general services          | `--profile all`                    |
+| `setup`        | `sslcerts` `postfix-smtp`     | `--profile setup`                  |
+| `status`       | `servicealerts` `dashboard` `reverseproxy`    | `--profile status` |
+| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `waf` `website` `db` `postfix-smtp` | `--profile webserver` |
+| `mailserver`   | `servicealerts` `dashboard` `reverseproxy` `postfix-smtp` | `--profile mailserver` |
+| `irc`          | `servicealerts` `dashboard` `irc` `irc-quizbot`           | `--profile irc`        |
+| `keepass`      | `servicealerts` `dashboard` `sftp`                        | `--profile keepass`    |
+| `quake`        | `servicealerts` `dashboard` `quake3`                      | `--profile quake`      |
+| `docu`         | `phpdoc`                      | `--profile docu`                   |
+| Single service | e.g. `stockticker`            | `docker compose up -d stockticker` |
+
+<br>
+
 <br>
 
 ## 🩺 Docker resource usage & services health
@@ -352,32 +379,6 @@ For **DEBUGGING mode** – with an *interactive log output* to the active shell 
 
 <br>
 
-### 🏷️ Docker services -> profiles mapping
-The `docker-compose.yml` file uses Docker Service-profiles to group services into logical groups.
-
-* This allows to only start / stop a certain group of services at once.
-* Yet individual docker services can still be targeted individually by referencing their service name.
-
-Some single services have their own profile, in order to prevent them from starting/stopping when using `docker compose` without any `--profile`.
-
-> [!TIP]
-> Multiple profiles can be combined: `docker compose --profile website --profile irc up`
-
-| Profile        | Applicablae Docker Services   | Example Usage                      |
-| -------------- | ----------------------------- | ---------------------------------- |
-| `all`          | All general services          | `--profile all`                    |
-| `setup`        | `sslcerts` `postfix-smtp`     | `--profile setup`                  |
-| `status`       | `servicealerts` `dashboard` `reverseproxy`    | `--profile status` |
-| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `waf` `website` `db` `postfix-smtp` | `--profile webserver` |
-| `mailserver`   | `servicealerts` `dashboard` `reverseproxy` `postfix-smtp` | `--profile mailserver` |
-| `irc`          | `servicealerts` `dashboard` `irc` `irc-quizbot`           | `--profile irc`        |
-| `keepass`      | `servicealerts` `dashboard` `sftp`                        | `--profile keepass`    |
-| `quake`        | `servicealerts` `dashboard` `quake3`                      | `--profile quake`      |
-| `docu`         | `phpdoc`                      | `--profile docu`                   |
-| Single service | e.g. `stockticker`            | `docker compose up -d stockticker` |
-
-<br>
-
 ### 📄 The `/zorg-docker/resources`-directory & files
 Contains site specific resources that are actively mapped from the Host to some of the Docker Services. But it also contains some *example* files that can be used to configure the services.
 
@@ -410,6 +411,33 @@ mysql -h <db.host.domain> -P 3306 -u MYSQL_USER -p MYSQL_DATABASE < /path/to/imp
 ```bash
 mysqldump -h <db.host.domain> -P 3306 -u MYSQL_USER -p MYSQL_DATABASE > /path/to/save-dump.sql
 ```
+
+<br>
+
+### 💾 Docker images
+Here's an overview of the underlaying Docker images used for the Docker Services, in order to provide quick access to their documentation & configuration how-to's.
+
+<details>
+<summary>Click to show list</summary>
+
+| Service            | Docker image             | Link               |
+| ------------------ | ------------------------ | ------------------ |
+| `sslcerts`         | `alpine/mkcert`          | [GitHub](https://github.com/alpine-docker/multi-arch-docker-images/tree/master/mkcert) |
+| `dashboard`        | `portainer/portainer-ce` | [Docs](https://docs.portainer.io/start/install-ce/server/docker) |
+| `reverseproxy`     | `traefik`                | [Docs](https://doc.traefik.io/traefik/) |
+| `reverseproxy-waf` | `owasp/modsecurity-crs`  | [GitHub](https://github.com/coreruleset/modsecurity-crs-docker) |
+| `website`          | `php`                    | [Docker Hub](https://hub.docker.com/_/php) |
+| `db`               | `mariadb`                | [Docs](https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/) |
+| `postfix-smtp`     | `mailserver/docker-mailserver` | [Docs](https://docker-mailserver.github.io/docker-mailserver/) |
+| `irc`              | `c0dy/unrealircd-anope`  | [Docker Hub](https://hub.docker.com/r/c0dy/unrealircd-anope) |
+| `irc-quizbot`      | `python:2.7-slim`        | [GitHub](https://github.com/zorgch/irc-quizbot) |
+| `stockticker`      | `python:3.9-slim`        | [GitHub](https://github.com/zorgch/zorg-docker/tree/dev/resources/python/stockticker) |
+| `servicealerts`    | `lorcas/docker-telegram-notifier` | [GitHub](https://github.com/luc-ass/docker-telegram-notifier) |
+| `sftp`             | `atmoz/sftp`             | [Docker Hub](https://hub.docker.com/r/atmoz/sftp/) |
+| `quake3`           | `jberrenberg/quake3`     | [GitHub](https://github.com/jberrenberg/docker-quake3/tree/master/quake3) |
+| `phpdoc`           | `phpdoc/phpdoc`          | [Docs](https://docs.phpdoc.org/guide/guides/running-phpdocumentor.html#running-phpdocumentor) |
+
+</details>
 
 <br><br>
 

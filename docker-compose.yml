@@ -517,7 +517,7 @@ services:
         entrypoint: ["/bin/bash", "/usr/local/bin/setup.sh"]
         volumes:
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/python/irc-quizbot/service-setup.sh:/usr/local/bin/setup.sh"
-            - "${HOST_DOCKER_WORKING_DIR:-.}/resources/python/irc-quizbot/configs:/usr/quizbot"
+            - "${HOST_PATH_IRC_QUIZBOT_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/python/irc-quizbot/configs}:/home/q:ro"
 
     # --- 📈 Stockticker ---
     stockticker:

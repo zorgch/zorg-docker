@@ -39,22 +39,32 @@ pip install twisted
 # Configure git for better HTTPS handling
 git config --global http.sslVerify false
 
+# q (quizbot) install dir
+APP_DIR="/opt/q"
+mkdir -p "$APP_DIR"
+
 
 ########## Clone the quizbot repository if it doesn't exist ##########
-if [ ! -d "/usr/src/q/.git" ]; then
-    git clone --depth 1 https://github.com/oliveratgithub/q.git /usr/src/q
+if [ ! -d "$APP_DIR/.git" ]; then
+    git clone --depth 1 https://github.com/zorgch/irc-quizbot.git $APP_DIR
 else
     echo "Repository exists. Pulling latest changes..."
-    git -C "/usr/src/q" pull --force
+    git -C "$APP_DIR" pull --force
 fi
 
 
-########## Overwrite with custom quizbot files ##########
-cp -f /usr/quizbot/config.py /usr/src/q/config.py
-cp -f /usr/quizbot/questions.py /usr/src/q/questions.py
-cp -f /usr/quizbot/strings.py /usr/src/q/strings.py
+########## If available: use custom quizbot config files ##########
+if [ -f "/home/q/config.py" ]; then
+  cp -f /home/q/config.py $APP_DIR/config.py
+fi
+if [ -f "/home/q/questions.py" ]; then
+  cp -f /home/q/questions.py $APP_DIR/questions.py
+fi
+if [ -f "/home/q/strings.py" ]; then
+  cp -f /home/q/strings.py $APP_DIR/strings.py
+fi
 
 
 ########## Run the quizbot ##########
-cd /usr/src/q
+cd $APP_DIR
 exec python q
