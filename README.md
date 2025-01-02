@@ -491,7 +491,7 @@ Here's an overview of the underlaying Docker images used for the Docker Services
 | `stockticker`      | `python:3.9-slim`         | [GitHub](https://github.com/zorgch/zorg-docker/tree/dev/resources/python/stockticker) |
 | `servicealerts`    | `lorcas/docker-telegram-notifier` | [GitHub](https://github.com/luc-ass/docker-telegram-notifier) |
 | `sftp`             | `atmoz/sftp`              | [Docker Hub](https://hub.docker.com/r/atmoz/sftp/) |
-| `quake3`           | `emzi0767/ioq3-universal` | [GitHub](https://github.com/Emzi0767/ioq3-universal) |
+| `quake3`           | `jberrenberg/quake3`      | [GitHub](https://github.com/jberrenberg/docker-quake3/tree/master/quake3) |
 | `phpdoc`           | `phpdoc/phpdoc`           | [Docs](https://docs.phpdoc.org/guide/guides/running-phpdocumentor.html#running-phpdocumentor) |
 
 </details>
