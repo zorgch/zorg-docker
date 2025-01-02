@@ -602,8 +602,8 @@ services:
     # // TODO + Add Stats API: https://hub.docker.com/r/adobromilskiy/quake3-stats
     quake3:
         profiles: [ "quake" ]
-        image: jberrenberg/quake3
-        platform: linux/x86_64 # ℹ️ Has no arm64 support
+        image: gl-registry.emzi0767.dev/emzi0767/ioq3-universal/ioq3-universal:latest
+        platform: ${OS_PLATFORM:-linux/x86_64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-quake3server
         restart: on-failure:3
         cpus: "${QUAKE3_CPU:-2.0}"
@@ -625,10 +625,11 @@ services:
             - "telegram-notifier.monitor=true"
             - "telegram-notifier.service-uri=${QUAKE3_HOST:+quake3://${QUAKE3_HOST}.${DOMAINNAME}:${QUAKE3_PORT:-27960}}"
         tty: true
-        command: "+map q3dm6" # ℹ️ NOTE Without using "+map q3xx", the quake3-Server will not be ready!
+        command: "+exec server.cfg ${QUAKE3_RCON_PASSWORD:+rconpassword ${QUAKE3_RCON_PASSWORD}}"
+        # ℹ️ NOTE Without explicitely starting a map ("map q3xx") the quake3-Server will not be ready!
         volumes:
-            - "${HOST_PATH_LOGS:-./logs}/quake3-server:/home/ioq3srv/.q3a/baseq3/logs"
-            - "${HOST_PATH_QUAKE3_BASEQ3:?Error HOST_PATH_QUAKE3_BASEQ3 is required}:/home/ioq3srv/.q3a/baseq3"
+            - "${HOST_PATH_LOGS:-./logs}/quake3-server:///quake/home/baseq3/logs"
+            - "${HOST_PATH_QUAKE3_PKG_FILES:-/dev/null}:/quake/baseq3"
 
     #-----------------
     # 📑 phpDocumentor
