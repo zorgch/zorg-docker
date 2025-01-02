@@ -33,7 +33,7 @@ services:
     sslcerts:
         profiles: [ "setup" ]
         image: alpine/mkcert
-        platform: ${OS_PLATFORM:-linux/arm64}
+        platform: ${OS_PLATFORM:-linux/x86_64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-sslcerts
         restart: no
         security_opt:
@@ -55,9 +55,9 @@ services:
     dashboard:
         profiles: [ "all", "status", "webserver", "mailserver", "irc", "quake", "keepass" ]
         image: portainer/portainer-ce
-        platform: ${OS_PLATFORM:-linux/arm64}
+        platform: ${OS_PLATFORM:-linux/x86_64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-dashboard
-        restart: unless-stopped
+        restart: on-failure:1
         depends_on:
             - servicealerts
         cpus: "${REVERSEPROXY_CPU:-0.5}"
@@ -82,11 +82,11 @@ services:
             - "traefik.http.routers.portainer.rule=Host(`${DASHBOARD_HOST:+${DASHBOARD_HOST}.${DOMAINNAME}}`)"
             - "traefik.http.services.portainer-ssl.loadbalancer.server.port=9000"
         command: >
-            --sslcert /certs/live/${DOMAINNAME:?Error DOMAINNAME is required}/fullchain.cert
-            --sslkey /certs/live/${DOMAINNAME:?Error DOMAINNAME is required}/privkey.key
+            --sslcert /certs/live/${DOMAINNAME}/fullchain.cert
+            --sslkey /certs/live/${DOMAINNAME}/privkey.key
         volumes:
             - "/var/run/docker.sock:/var/run/docker.sock"
-            - sslcerts-files:/certs/live/${DOMAINNAME:?Error DOMAINNAME is required}
+            - sslcerts-files:/certs/live/${DOMAINNAME}
             - portainer-files:/data
 
     #-----------------------------
@@ -95,9 +95,9 @@ services:
     reverseproxy:
         profiles: [ "all", "status", "webserver", "mailserver" ]
         image: traefik
-        platform: ${OS_PLATFORM:-linux/arm64}
+        platform: ${OS_PLATFORM:-linux/x86_64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-reverseproxy
-        restart: unless-stopped
+        restart: on-failure:1
         cpus: "${REVERSEPROXY_CPU:-0.5}"
         mem_limit: "${REVERSEPROXY_MEMORY:-512m}"
         security_opt:
@@ -152,7 +152,7 @@ services:
                     echo "\
                     --certificatesresolvers.letsencrypt.acme.tlschallenge=true \
                     --certificatesresolvers.letsencrypt.acme.storage=/certs/acme.json \
-                    --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL:?Error LETSENCRYPT_EMAIL is required} \
+                    --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL:-} \
                     --certificatesresolvers.letsencrypt.acme.caserver=${LETSENCRYPT_CASERVER:-https://acme-v02.api.letsencrypt.org/directory}"
                 else
                     echo "\
@@ -172,9 +172,9 @@ services:
     reverseproxy-waf:
         profiles: [ "all", "webserver" ]
         image: owasp/modsecurity-crs:apache-alpine
-        platform: ${OS_PLATFORM:-linux/arm64}
+        platform: ${OS_PLATFORM:-linux/x86_64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-waf
-        restart: unless-stopped
+        restart: on-failure:3
         depends_on:
             - reverseproxy
         cpus: "${WAF_CPU:-0.5}"
@@ -215,9 +215,9 @@ services:
     website:
         profiles: [ "all", "webserver" ]
         image: php:${PHP_VERSION:-8.1}-apache
-        platform: ${OS_PLATFORM:-linux/arm64}
+        platform: ${OS_PLATFORM:-linux/x86_64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-website
-        restart: unless-stopped
+        restart: on-failure:1
         cpus: "${WEBSITE_CPU:-2.0}"
         mem_limit: "${WEBSITE_MEMORY:-2048m}"
         security_opt:
@@ -276,8 +276,8 @@ services:
             INSTALL_PHP_EXTENSIONS: ${WEBSITE_PHP_EXTENSIONS:-}
             MAXMIND_ACCOUNT: ${WEBSITE_MAXMIND_GEO2IP_ACCOUNTID:-}
             MAXMIND_LICENSE: ${WEBSITE_MAXMIND_GEO2IP_LICENSEKEY:-}
-            GIT_REPO: ${WEBSITE_GIT_REPO:?Error a GIT_REPO is required}
-            GIT_BRANCH: ${WEBSITE_GIT_BRANCH}
+            GIT_REPO: ${WEBSITE_GIT_REPO:-}
+            GIT_BRANCH: ${WEBSITE_GIT_BRANCH:-}
             ${WEBSITE_IS_DEVELOPMENT:+XDEBUG_CONFIG}: >
                 client_port=${XDEBUG_PORT:-9003}
                 client_host=host.docker.internal
@@ -299,15 +299,15 @@ services:
             - "${HOST_PATH_LOGS:-./logs}/website/website:${WESBITE_ROOT_DIR}/logs"
             # -=[ apache2 ]=-
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/website/apache/maxminddb.conf:/etc/apache2/conf-available/maxminddb.conf:ro" # :ro = read-only
-            - "${HOST_PATH_WEBSITE_APACHE_CONFIG:?Error an APACHE_CONF is required}:/etc/apache2/sites-available/000-default.conf:ro"
-            - "${HOST_PATH_WEBSITE_GEO2IP_DBFILE:+${HOST_PATH_WEBSITE_GEO2IP_DBFILE}:/usr/share/GeoIP/GeoLite2-City/GeoLite2-City.mmdb}"
+            - "${HOST_PATH_WEBSITE_APACHE_CONFIG:-/dev/null}:/etc/apache2/sites-available/000-default.conf:ro"
+            - "${HOST_PATH_WEBSITE_GEO2IP_DBFILE:-/dev/null}:/usr/share/GeoIP/GeoLite2-City/GeoLite2-City.mmdb"
             # -=[ sendmail (msmtp) ]=-
-            - "${HOST_PATH_WEBSITE_MSMTP_CONFIG:?Error MSMTP_CONFIG is required}:/tmp/msmtprc:ro"
+            - "${HOST_PATH_WEBSITE_MSMTP_CONFIG:-/dev/null}:/tmp/msmtprc:ro"
             # -=[ php
-            - "${HOST_PATH_WEBSITE_ENV_FILE:?Error WEBSITE_ENV_FILE is required}:/tmp/.env:ro" # :ro = read-only
+            - "${HOST_PATH_WEBSITE_ENV_FILE:-/dev/null}:/tmp/.env:ro" # :ro = read-only
             # -=[ cron ]=-
-            - "${HOST_PATH_WEBSITE_CRONTAB_CONFIG:?Error CRONTAB_CONFIG is required}:/etc/cron.d/custom"
-            - "${HOST_PATH_WEBSITE_CRON_SCRIPTS:-./resources/website/cron}:${WESBITE_ROOT_DIR}/cron"
+            - "${HOST_PATH_WEBSITE_CRONTAB_CONFIG:-/dev/null}:/etc/cron.d/custom"
+            - "${HOST_PATH_WEBSITE_CRON_SCRIPTS:-${HOST_DOCKER_WORKING_DIR:-.}/resources/website/cron}:${WESBITE_ROOT_DIR}/cron"
             # -=[ Website data (user-generated content) ]=-
             - website-files:${WESBITE_ROOT_DIR}/data:rw # :rw = read+write (explicit)
 
@@ -317,9 +317,9 @@ services:
     db:
         profiles: [ "all", "webserver" ]
         image: mariadb:${MARIADB_VERSION:-latest}
-        platform: ${OS_PLATFORM:-linux/arm64}
+        platform: ${OS_PLATFORM:-linux/x86_64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-mariadb
-        restart: unless-stopped
+        restart: on-failure:3
         cpus: "${MARIADB_CPU:-2.0}"
         mem_limit: "${MARIADB_MEMORY:-2560m}"
         security_opt:
@@ -373,9 +373,9 @@ services:
     postfix-smtp:
         profiles: [ "all", "setup", "mailserver" ]
         image: mailserver/docker-mailserver:latest
-        platform: ${OS_PLATFORM:-linux/arm64}
+        platform: ${OS_PLATFORM:-linux/x86_64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-mailserver
-        restart: unless-stopped
+        restart: on-failure:3
         cpus: "${MAILSERVER_CPU:-0.2}"
         mem_limit: "${MAILSERVER_MEMORY:-64m}"
         security_opt:
@@ -416,7 +416,7 @@ services:
             - TZ=${TIMEZONE:-Europe/Zurich}
             - PERMIT_DOCKER=connected-networks
             - LOG_LEVEL=${MAILSERVER_LOGLEVEL:-info}
-            - POSTMASTER_ADDRESS=${MAILSERVER_POSTMASTER:?Error MAILSERVER_POSTMASTER is required}
+            - POSTMASTER_ADDRESS=postmaster@${DOMAINNAME}
             - ENABLE_POSTFIX_VIRTUAL_TRANSPORT=1
             - POSTFIX_INET_PROTOCOLS=ipv4
             - POSTFIX_MESSAGE_SIZE_LIMIT=${MAILSERVER_EMAIL_MAXSIZE:-10240000}
@@ -449,7 +449,7 @@ services:
         image: c0dy/unrealircd-anope
         platform: linux/x86_64 # ℹ️ Has no arm64 support
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-ircdserver
-        restart: unless-stopped
+        restart: on-failure:5
         cpus: "${IRC_CPU:-0.25}"
         mem_limit: "${IRC_MEMORY:-256m}"
         security_opt:
@@ -485,9 +485,9 @@ services:
             - "${HOST_PATH_LOGS:-./logs}/irc-server:/var/log"
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/irc/anope:/home/ircd/services/conf"
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/irc/unrealircd:/home/ircd/unrealircd/conf"
-            - "${HOST_PATH_IRC_ANOPE_CONFIG_FILES:?Error HOST_PATH_IRC_ANOPE_CONFIG_FILES is required}:/home/ircd/services/conf/custom:ro"
-            - "${HOST_PATH_IRC_IRCD_CONFIG_FILES:?Error HOST_PATH_IRC_IRCD_CONFIG_FILES is required}:/home/ircd/unrealircd/conf/custom:ro"
-            - "${HOST_PATH_IRC_IRCD_CONFIG_FILES}/ircd.motd:/home/ircd/unrealircd/conf/ircd.motd:ro"
+            - "${HOST_PATH_IRC_ANOPE_CONFIG_FILES:-/dev/null}:/home/ircd/services/conf/custom:ro"
+            - "${HOST_PATH_IRC_IRCD_CONFIG_FILES:-/dev/null}:/home/ircd/unrealircd/conf/custom:ro"
+            - "${HOST_PATH_IRC_IRCD_CONFIG_FILES:-/dev/null}/ircd.motd:/home/ircd/unrealircd/conf/ircd.motd:ro"
 
     #-------------------------
     # 🐍 python Micro-Services
@@ -498,7 +498,7 @@ services:
         image: python:2.7-slim
         platform: linux/x86_64 # ℹ️ Has no arm64 support (py2.7)
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-ircquizbot
-        restart: unless-stopped
+        restart: on-failure:5
         depends_on:
             irc:
                 condition: service_healthy
@@ -523,9 +523,9 @@ services:
     stockticker:
         profiles: [ "all" ]
         image: python:3.9-slim
-        platform: ${OS_PLATFORM:-linux/arm64}
+        platform: ${OS_PLATFORM:-linux/x86_64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-stockticker
-        restart: unless-stopped
+        restart: on-failure:1
         cpus: "${MICROSERVICE_CPU:-0.1}"
         mem_limit: "${MICROSERVICE_MEMORY:-32m}"
         security_opt:
@@ -534,9 +534,9 @@ services:
             - "telegram-notifier.monitor=true"
         environment:
             - TZ=${TIMEZONE:-Europe/Zurich}
-            - STOCK_TICKERS=${STOCKTICKER_SYMBOLS:?Error STOCKTICKER_SYMBOLS is required}
-            - TELEGRAM_TOKEN=${TELEGRAM_BOT_TOKEN:?Error TELEGRAM_BOT is required}
-            - TELEGRAM_CHAT=${TELEGRAM_BOT_CHATID:?Error TELEGRAM_CHAT is required}
+            - STOCK_TICKERS=${STOCKTICKER_SYMBOLS:-}
+            - TELEGRAM_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+            - TELEGRAM_CHAT=${TELEGRAM_BOT_CHATID:-}
         working_dir: /usr/src/
         entrypoint: ["/bin/bash", "/usr/local/bin/setup.sh"]
         volumes:
@@ -547,9 +547,9 @@ services:
     servicealerts:
         profiles: [ "all", "status", "webserver", "mailserver", "irc", "quake", "keepass" ]
         image: lorcas/docker-telegram-notifier:latest
-        platform: ${OS_PLATFORM:-linux/arm64}
+        platform: ${OS_PLATFORM:-linux/x86_64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-notifier
-        restart: unless-stopped
+        restart: on-failure:1
         stop_grace_period: 60s
         cpus: "${MICROSERVICE_CPU:-0.25}"
         mem_limit: "${MICROSERVICE_MEMORY:-128m}"
@@ -557,10 +557,10 @@ services:
             - "no-new-privileges:true"
         environment:
             # ℹ️ Notifications only from whitelisted containers: "labels: telegram-notifier.monitor=true"
-            ONLY_WHITELIST: true
-            TELEGRAM_NOTIFIER_BOT_TOKEN: ${TELEGRAM_BOT_SERVICEALERTS_TOKEN:-}
-            TELEGRAM_NOTIFIER_CHAT_ID: ${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}
-            TELEGRAM_NOTIFIER_TOPIC_ID: ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}
+            - ONLY_WHITELIST=true
+            - TELEGRAM_NOTIFIER_BOT_TOKEN=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:-}
+            - TELEGRAM_NOTIFIER_CHAT_ID=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}
+            - TELEGRAM_NOTIFIER_TOPIC_ID=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}
         volumes:
             - "/var/run/docker.sock:/var/run/docker.sock:ro"
             - "${HOST_PATH_TELEGRAM_STATUSMESSAGES_CONFIG:-${HOST_DOCKER_WORKING_DIR}/resources/telegram-notifier/messages.js}:/usr/src/app/templates.js:ro"
@@ -573,7 +573,7 @@ services:
         image: atmoz/sftp:alpine
         platform: linux/x86_64 # ℹ️ Has no arm64 support
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-keepass
-        restart: unless-stopped
+        restart: on-failure:3
         cpus: "${KEEPASS_SFTP_CPU:-0.1}"
         mem_limit: "${KEEPASS_SFTP_MEMORY:-64m}"
         security_opt:
@@ -594,7 +594,7 @@ services:
             - "telegram-notifier.service-uri=${KEEPASS_HOST:+sftp://${KEEPASS_HOST}.${DOMAINNAME}:${KEEPASS_PORT_SFTP:-22}}"
         command: "${KEEPASS_SFTP_USER:-keepass}:${KEEPASS_SFTP_PASSWORD:-}:1001"
         volumes:
-            - "${HOST_PATH_KEEPASS_FILE:?Error KEEPASS_FILE is required}:/home/${KEEPASS_SFTP_USER:-keepass}/${KEEPASS_KDBX_FILENAME:-database.kdbx}"
+            - "${HOST_PATH_KEEPASS_FILE:-/dev/null}:/home/${KEEPASS_SFTP_USER:-keepass}/${KEEPASS_KDBX_FILENAME:-database.kdbx}"
 
     #----------------------------
     # 🕹️ Quake 3 Arena Gameserver
@@ -605,7 +605,7 @@ services:
         image: jberrenberg/quake3
         platform: linux/x86_64 # ℹ️ Has no arm64 support
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-quake3server
-        restart: no
+        restart: on-failure:3
         cpus: "${QUAKE3_CPU:-2.0}"
         mem_limit: "${QUAKE3_MEMORY:-3072m}"
         security_opt:
@@ -636,19 +636,19 @@ services:
     phpdoc:
         profiles: [ "docu" ]
         image: phpdoc/phpdoc:latest
-        platform: ${OS_PLATFORM:-linux/arm64}
+        platform: ${OS_PLATFORM:-linux/x86_64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-phpdocumentor
         restart: no
         security_opt:
             - "no-new-privileges:true"
         environment:
-            - GIT_REPO=${WEBSITE_GIT_REPO:?Error WEBSITE_GIT_REPO is required}
+            - GIT_REPO=${WEBSITE_GIT_REPO:-https://github.com/zorgch/zorg-code}
             - GIT_BRANCH=${WEBSITE_GIT_BRANCH:-main}
         command: -d /data -t /docs # FIXME -c /phpdoc.xml | See github.com/phpDocumentor/phpDocumentor/issues/3830
         volumes:
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/phpdocumentor/phpdoc.xml:/phpdoc.xml:ro" # :ro = read-only
-            - "${HOST_PATH_PHPDOC_SOURCECODE:?Error SOURCECODE is required}:/data"
-            - "${HOST_PATH_PHPDOC_OUTPUT:?Error PHPDPC_OUTPUT is required}:/docs"
+            - "${HOST_PATH_PHPDOC_SOURCECODE:-/dev/null}:/data"
+            - "${HOST_PATH_PHPDOC_OUTPUT:-/dev/null}:/docs"
 
 
 #==============================
@@ -665,33 +665,19 @@ networks:
 # --==[ DOCKER DATA VOLUMES ]==--
 #================================
 volumes:
-    # "external: false" = Managed by Docker in /var/lib/docker/volumes/
+    # ℹ️ NOTE "external: false" = managed by Docker in /var/lib/docker/volumes/
     sslcerts-files:
         external: false
-        # // Alternative use locally
-        #external: true
-        #driver: local
-        #driver_opts:
-        #    type: none
-        #    device: ${HOST_PATH_SSL:?}
-        #    o: bind
     portainer-files:
         external: false
     website-files:
         driver: local
         driver_opts:
             type: none
-            device: ${HOST_PATH_WEBSITE_DATA_FILES:?}
+            device: ${HOST_PATH_WEBSITE_DATA_FILES:-/dev/null}
             o: bind
     database-files:
         external: false
-        # // Alternative use locally
-        #external: true
-        #driver: local
-        #driver_opts:
-        #    type: none
-        #    device: ${HOST_PATH_DATABASE:?}
-        #    o: bind
     mail-data-files:
         external: false
     mail-state-files:

@@ -1,7 +1,7 @@
 module.exports = {
     // Startup message
     connection_message: ({hostname, version, os, type, architecture, cpu, memory}) =>
-        `telegram-notifier connected to docker v${version} on ${hostname}\n${type}/${architecture} (${os}) | ${cpu} CPU | RAM ${memory}`,
+        `[<b>${hostname}</b>] Connected to docker v${version} Host:\n${type}/${architecture} [${os}] | ${cpu} CPU | RAM ${memory}`,
 
     // Container up
     container_start: e =>

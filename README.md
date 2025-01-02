@@ -11,13 +11,15 @@ zorg on Docker
 [🔖 Pre-requisites](#-pre-requisites)
 - [git installation](#git-installation)
 - [Docker installation](#docker-installation)
+  - [🔥 Firewall ports configuration](#-firewall-ports-configuration)
+  - [🌐 DNS-records and Hosts](#-dns-records-and-hosts)
 - [📂 Folder structure setup](#-folder-structure-setup)
 
 [🏁 Getting started](#-getting-started)
 - [Initial setup (one time only)](#initial-setup-one-time-only)
 - [⏩ Update the cloned `zorg-docker` git repository](#-update-the-local-cloned-zorg-docker-git-repository)
 
-[👨‍💻 Docker services](#-docker-services)
+[📦 Docker services](#-docker-services)
 - [Manage general services](#manage-general-services)
   - [Single «KeePass SFTP» service](#run-the-keepass-sftp-service-separately)
   - [Single «Quake 3 Arena Server»](#run-the-quake-3-arena-server-separately)
@@ -49,6 +51,92 @@ Following the [official installation instructions](https://docs.docker.com/engin
 
 > [!TIP]
 > On Ubuntu it's advised *against installing via snap*, as this may cause compatibility issues!
+
+<br>
+
+#### 🔥 Firewall ports configuration
+
+Ensure the Host machine's firewall is configured to expose & allow access through the required ports for different Docker Services:
+
+<details>
+<summary>Allow a port - or port range</summary>
+
+(non-conclusive, depends on what `ports:` are set in the `.env` file)
+
+```bash
+sudo ufw allow 80 # webserver/reverseproxy http
+sudo ufw allow 443 # webserver/reverseproxy https
+sudo ufw allow 3306/tcp # db-Server
+sudo ufw allow 6697/tcp # irc-Server (secure)
+sudo ufw allow 22/tcp # ftp-Server
+sudo ufw allow 27960/udp # quake3-Server
+```
+</details>
+
+<details>
+<summary>Inspect all rules - i.e. allowed ports</summary>
+
+```bash
+% sudo ufw status
+
+Status: active
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW       Anywhere
+80/tcp                     ALLOW       Anywhere
+443                        ALLOW       Anywhere
+27960/udp                  ALLOW       Anywhere
+
+```
+</details>
+
+<br>
+
+#### 🌐 DNS-records and Hosts
+
+For all Hosts (subdomains) on the main Domain, the correspoinding DNS A-records with IP must be set up.
+
+<details>
+<summary>Example A-records</summary>
+
+```bash
+serviceAB.zorg.ch.	600	IN	A	178.nn.nn.nn
+serviceNM.zorg.ch.	600	IN	A	178.nn.nn.nn
+serviceXY.zorg.ch.	600	IN	A	178.nn.nn.nn
+```
+</details>
+
+<br>
+
+##### 👨‍💻 Working locally (development)? Add `hosts`!
+
+On production a proper setup with pointing DNS for the root domain to the server's IP-address, this should not be necessary. But **locally** with a dummy domain, the domain & hostnames must be added to the `/etc/hosts`-file:
+
+<details>
+<summary>Example `hosts`-entries</summary>
+
+(adjust as per your `.env` settings)
+
+```bash
+127.0.0.1	zdocker.dev
+127.0.0.1	status.zdocker.dev
+127.0.0.1	www.zdocker.dev
+127.0.0.1	db.zdocker.dev
+127.0.0.1	ftp.zdocker.dev
+127.0.0.1	irc.zdocker.dev
+127.0.0.1	pw.zdocker.dev
+127.0.0.1	smtp.zdocker.dev
+127.0.0.1	quake.zdocker.dev
+```
+</details>
+
+<br><br>
+
+## 🏁 Getting started
+In general make sure to work from the project root directory:
+
+`cd /srv/<my-website>/<host>`
 
 <br>
 
@@ -118,13 +206,6 @@ Creat the a folder structure on your host machine that reflects the following:
         └── pak1-8.pk3      <-- Provide only if "Client/Server Mismatch" occurs
 ```
 
-<br><br>
-
-## 🏁 Getting started
-In general make sure to work from the project root directory:
-
-`cd /srv/<my-website>/<host>`
-
 <br>
 
 ### Initial setup (one time only)
@@ -182,7 +263,7 @@ docker compose --profile setup up
 > This is required when emails to a local user (alias) should be forwarded to an external email address corresponding to that alias.
 
 ```
-docker exec -ti PROJECTNAME-mailserver setup email add postmaster@DOMAINNAME <NEW_PASSWORD>
+docker exec -ti PROJECTNAME-mailserver setup email add info@DOMAINNAME <NEW_PASSWORD>
 docker exec -ti PROJECTNAME-mailserver setup alias add <EMAILADDRESS> <RECIPIENT>
 ```
 
@@ -197,30 +278,6 @@ docker exec -ti PROJECTNAME-mailserver setup config dkim help
 
 <br>
 
-#### 👨‍💻 Working locally (development)? Add `hosts`!
-
-On production a proper setup with pointing DNS for the root domain to the server's IP-address, this should not be necessary. But **locally** with a dummy domain, the domain & hostnames must be added to the `/etc/hosts`-file:
-
-<details>
-<summary>Example `hosts`-entries</summary>
-
-(adjust as per your `.env` settings)
-
-```bash
-127.0.0.1	zdocker.dev
-127.0.0.1	status.zdocker.dev
-127.0.0.1	www.zdocker.dev
-127.0.0.1	db.zdocker.dev
-127.0.0.1	ftp.zdocker.dev
-127.0.0.1	irc.zdocker.dev
-127.0.0.1	pw.zdocker.dev
-127.0.0.1	smtp.zdocker.dev
-127.0.0.1	quake.zdocker.dev
-```
-</details>
-
-<br>
-
 ### ⏩ Update the local cloned `zorg-docker` git repository
 cd into the directory containing the locally cloned git files, and run a git pull:
 
@@ -232,7 +289,7 @@ git pull --depth 1 --rebase
 
 <br><br>
 
-## 👨‍💻 Docker services
+## 📦 Docker services
 ### Manage general services
 
 **PRODUCTION mode** – run in "detached mode" (background), *without* interative logging to the shell by adding the `-d` flag.
