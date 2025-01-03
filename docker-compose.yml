@@ -625,7 +625,7 @@ services:
             - "telegram-notifier.monitor=true"
             - "telegram-notifier.service-uri=${QUAKE3_HOST:+quake3://${QUAKE3_HOST}.${DOMAINNAME}:${QUAKE3_PORT:-27960}}"
         tty: true
-        command: "+exec server.cfg ${QUAKE3_RCON_PASSWORD:+rconpassword ${QUAKE3_RCON_PASSWORD}}"
+        command: "+exec server.cfg ${QUAKE3_RCON_PASSWORD:++rconpassword ${QUAKE3_RCON_PASSWORD}}"
         # ℹ️ NOTE Without explicitely starting a map ("map q3xx") the quake3-Server will not be ready!
         volumes:
             - "${HOST_PATH_QUAKE3_PKG_FILES:-/dev/null}:/home/ioq3srv/.q3a/baseq3"
