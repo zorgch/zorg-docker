@@ -629,7 +629,7 @@ services:
         # ℹ️ NOTE Without explicitely starting a map ("map q3xx") the quake3-Server will not be ready!
         volumes:
             - "${HOST_PATH_LOGS:-./logs}/quake3-server:/home/ioq3srv/.q3a/baseq3/logs"
-            - "${HOST_PATH_QUAKE3_PKG_FILES:-/dev/null}:/home/ioq3srv/.q3a/baseq3"
+            - "${HOST_PATH_QUAKE3_PKG_FILES:-/dev/null}:/home/ioq3srv/ioquake3/baseq3"
 
     #-----------------
     # 📑 phpDocumentor
