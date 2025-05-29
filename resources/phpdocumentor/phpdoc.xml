@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<phpdocumentor
+    configVersion="3"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://www.phpdoc.org"
+    xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/phpDocumentor/phpDocumentor/master/data/xsd/phpdoc.xsd"
+>
+    <title>zorg Code Documentation</title>
+
+    <paths>
+        <output>/docs</output>
+        <cache>/tmp/cache</cache>
+    </paths>
+
+    <version number="latest">
+        <api>
+            <source dsn="/data">
+                <path>app</path>
+                <path>public</path>
+            </source>
+            <default-package-name>zorg</default-package-name>
+            <include-source>true</include-source>
+            <markers>
+                <marker>TODO</marker>
+                <marker>todo</marker>
+                <marker>FIXME</marker>
+                <marker>fixme</marker>
+            </markers>
+            <extensions>
+                <extension>php</extension>
+                <extension>js</extension>
+            </extensions>
+            <ignore>
+                <path>images/*</path>
+                <path>img/*</path>
+                <path>g-recaptcha-src/*</path>
+                <path>mobilezorg/*</path>
+                <path>test/*</path>
+                <path>traffic*</path>
+                <path>date-format*</path>
+                <path>dropzone*</path>
+                <path>emoji*</path>
+                <path>highlight*</path>
+                <path>jquery*</path>
+                <path>quill*</path>
+                <path>tribute*</path>
+                <path>google*.html</path>
+                <path>*development*</path>
+                <path>*local*</path>
+            </ignore>
+        </api>
+    </version>
+</phpdocumentor>

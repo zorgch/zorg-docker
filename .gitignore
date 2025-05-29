@@ -1,0 +1,35 @@
+# Ignore all these files & folders:
+**/lib-*/
+**/spool-*/
+**/mysql/*
+**/docs/*
+.env
+acme.json
+*_log*
+*.bak
+*.cnf
+*.CSM
+*.CSV
+*.frm
+*.ibd
+*.info
+*.log
+*.MAD
+*.MAI
+*.MYD
+*.MYI
+*.opt
+*.out
+*.pem
+*.pid
+*.sock
+*.sqlite
+*.tmp
+
+# ...and DON'T ignore these things
+!.github/
+!.gitignore
+!.gitkeep
+!LICENSE
+!README.md
+!/resources
