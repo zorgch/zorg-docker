@@ -14,6 +14,7 @@ zorg on Docker
   - [🔥 Firewall ports configuration](#-firewall-ports-configuration)
   - [🌐 DNS-records and Hosts](#-dns-records-and-hosts)
 - [📂 Folder structure setup](#-folder-structure-setup)
+  - [👥 Set correct permissions](#-set-correct-permissions)
 
 [🏁 Getting started](#-getting-started)
 - [Initial setup (one time only)](#initial-setup-one-time-only)
@@ -205,6 +206,28 @@ Creat the a folder structure on your host machine that reflects the following:
         ├── pak0.pk3        <-- Should be sufficient
         └── pak1-8.pk3      <-- Provide only if "Client/Server Mismatch" occurs
 ```
+
+#### 👥 Set correct permissions
+Some Docker Services require specific permissions on directories & files mounted from the Host:
+
+##### Quake 3 Arena Server
+
+<details>
+<summary>Show permission setup steps…</summary>
+
+> [!NOTE]
+> `uid=1000(ioq3srv) gid=1000(ioq3srv) groups=1000(ioq3srv)`
+
+```bash
+sudo chgrp -R 1000 ./quake3-baseq3
+sudo chmod -R g+rw ./quake3-baseq3
+```
+
+```bash
+sudo chgrp -R 1000 ./logs/quake3-server
+sudo chmod -R g+rw ./logs/quake3-server
+```
+</details>
 
 <br>
 
