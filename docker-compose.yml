@@ -465,9 +465,8 @@ services:
         hostname: ${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}
         networks:
             - information-superhighway
-        expose:
-            - "${IRC_PORT:-6667}:6667"
         ports:
+            - "${IRC_PORT:-6667}:6667"
             - "${IRC_PORT_SSL:-6697}:6697"
         labels:
             - "telegram-notifier.monitor=true"
