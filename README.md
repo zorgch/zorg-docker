@@ -306,7 +306,7 @@ cd into the directory containing the locally cloned git files, and run a git pul
 
 ```bash
 cd /srv/<my-website>/<host>/zorg-docker
-git pull --depth 1 --rebase
+git pull --rebase
 ```
 
 

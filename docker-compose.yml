@@ -191,7 +191,7 @@ services:
             - TZ=${TIMEZONE:-Europe/Zurich}
             - SERVER_NAME=${DOMAINNAME:-modsec-waf}
             - BACKEND=http://website:${HTTP_PORT:-80}
-            - ERRORLOG=/var/log/modsecurity/modsec_error.log
+            #- ERRORLOG=/var/log/modsecurity/modsec_error.log : DISABLED - default: /proc/self/fd/2
             - APACHE_ALWAYS_TLS_REDIRECT=true
             - PROXY_PRESERVE_HOST=on
             - PROXY_ERROR_OVERRIDE=off
@@ -199,7 +199,7 @@ services:
             # -=[ modsec specific ]=-
             - MODSEC_AUDIT_LOG_FORMAT=JSON
             - MODSEC_UPLOAD_KEEP_FILES=Off
-            - MODSEC_AUDIT_LOG=/var/log/modsecurity/modsec_audit.log
+            #- MODSEC_AUDIT_LOG=/var/log/modsecurity/modsec_audit.log : DISABLED - default: /dev/stdout
             # -=[ CRS specific ]=-
             - ANOMALY_INBOUND=5
             - ANOMALY_OUTBOUND=5
