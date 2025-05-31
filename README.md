@@ -14,7 +14,7 @@ zorg on Docker
   - [🔥 Firewall ports configuration](#-firewall-ports-configuration)
   - [🌐 DNS-records and Hosts](#-dns-records-and-hosts)
 - [📂 Folder structure setup](#-folder-structure-setup)
-  - [👥 Set correct permissions](#-set-correct-permissions)
+- [💾 Docker images](#-docker-images)
 
 [🏁 Getting started](#-getting-started)
 - [Initial setup (one time only)](#initial-setup-one-time-only)
@@ -33,7 +33,6 @@ zorg on Docker
 - [🧪 Debugging Docker Services](#-debugging-docker-services)
 - [📄 The `/zorg-docker/resources`-directory & files](#-the-zorg-dockerresources-directory--files)
 - [💿 Import/export SQL-dumps with MariaDB](#-importexport-sql-dumps-with-mariadb)
-- [💾 Docker mages](#-docker-images)
 
 <br>
 
@@ -68,8 +67,9 @@ Ensure the Host machine's firewall is configured to expose & allow access throug
 sudo ufw allow 80 # webserver/reverseproxy http
 sudo ufw allow 443 # webserver/reverseproxy https
 sudo ufw allow 3306/tcp # db-Server
+sudo ufw allow 6667/tcp # irc-Server
 sudo ufw allow 6697/tcp # irc-Server (secure)
-sudo ufw allow 22/tcp # ftp-Server
+sudo ufw allow 21/tcp # ftp-Server | NOTE: 22 reserved for ssh
 sudo ufw allow 27960/udp # quake3-Server
 ```
 </details>
@@ -84,11 +84,11 @@ Status: active
 
 To                         Action      From
 --                         ------      ----
+21/tcp                     ALLOW       Anywhere
 22/tcp                     ALLOW       Anywhere
 80/tcp                     ALLOW       Anywhere
 443                        ALLOW       Anywhere
 27960/udp                  ALLOW       Anywhere
-
 ```
 </details>
 
@@ -102,9 +102,10 @@ For all Hosts (subdomains) on the main Domain, the correspoinding DNS A-records 
 <summary>Example A-records</summary>
 
 ```bash
-serviceAB.zorg.ch.	600	IN	A	178.nn.nn.nn
-serviceNM.zorg.ch.	600	IN	A	178.nn.nn.nn
-serviceXY.zorg.ch.	600	IN	A	178.nn.nn.nn
+mail.domain.ch.	        600	IN	MX	178.nn.nn.nn
+*.domain.ch.	          600	IN	A	  178.nn.nn.nn
+www.domain.ch.	        600	IN	A	  178.nn.nn.nn
+dockerstatus.domain.ch.	600	IN	A	  178.nn.nn.nn
 ```
 </details>
 
@@ -207,26 +208,31 @@ Creat the a folder structure on your host machine that reflects the following:
         └── pak1-8.pk3      <-- Can be obtained at: https://ioquake3.org/extras/patch-data/
 ```
 
-#### 👥 Set correct permissions
-Some Docker Services require specific permissions on directories & files mounted from the Host:
+<br>
 
-##### Quake 3 Arena Server
+### 💾 Docker images
+Here's an overview of the underlaying Docker images used for the Docker Services, in order to provide quick access to their documentation & configuration how-to's.
 
 <details>
-<summary>Show permission setup steps…</summary>
+<summary>Click to show list</summary>
 
-> [!NOTE]
-> `uid=1000(ioq3srv) gid=1000(ioq3srv) groups=1000(ioq3srv)`
+| Service            | Docker image              | Link               |
+| ------------------ | ------------------------- | ------------------ |
+| `sslcerts`         | `alpine/mkcert`           | [GitHub](https://github.com/alpine-docker/multi-arch-docker-images/tree/master/mkcert) |
+| `dashboard`        | `portainer/portainer-ce`  | [Docs](https://docs.portainer.io/start/install-ce/server/docker) |
+| `reverseproxy`     | `traefik`                 | [Docs](https://doc.traefik.io/traefik/) |
+| `reverseproxy-waf` | `owasp/modsecurity-crs`   | [GitHub](https://github.com/coreruleset/modsecurity-crs-docker) |
+| `website`          | `php`                     | [Docker Hub](https://hub.docker.com/_/php) |
+| `db`               | `mariadb`                 | [Docs](https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/) |
+| `postfix-smtp`     | `mailserver/docker-mailserver` | [Docs](https://docker-mailserver.github.io/docker-mailserver/) |
+| `irc`              | `c0dy/unrealircd-anope`   | [Docker Hub](https://hub.docker.com/r/c0dy/unrealircd-anope) |
+| `irc-quizbot`      | `python:2.7-slim`         | [GitHub](https://github.com/zorgch/irc-quizbot) |
+| `stockticker`      | `python:3.9-slim`         | [GitHub](https://github.com/zorgch/zorg-docker/tree/dev/resources/python/stockticker) |
+| `servicealerts`    | `lorcas/docker-telegram-notifier` | [GitHub](https://github.com/luc-ass/docker-telegram-notifier) |
+| `sftp`             | `atmoz/sftp`              | [Docker Hub](https://hub.docker.com/r/atmoz/sftp/) |
+| `quake3`           | `jberrenberg/quake3`      | [GitHub](https://github.com/jberrenberg/docker-quake3/tree/master/quake3) |
+| `phpdoc`           | `phpdoc/phpdoc`           | [Docs](https://docs.phpdoc.org/guide/guides/running-phpdocumentor.html#running-phpdocumentor) |
 
-```bash
-sudo chgrp -R 1000 ./quake3-baseq3
-sudo chmod -R g+rw ./quake3-baseq3
-```
-
-```bash
-sudo chgrp -R 1000 ./logs/quake3-server
-sudo chmod -R g+rw ./logs/quake3-server
-```
 </details>
 
 <br>
@@ -491,33 +497,6 @@ mysql -h <db.host.domain> -P 3306 -u MYSQL_USER -p MYSQL_DATABASE < /path/to/imp
 ```bash
 mysqldump -h <db.host.domain> -P 3306 -u MYSQL_USER -p MYSQL_DATABASE > /path/to/save-dump.sql
 ```
-
-<br>
-
-### 💾 Docker images
-Here's an overview of the underlaying Docker images used for the Docker Services, in order to provide quick access to their documentation & configuration how-to's.
-
-<details>
-<summary>Click to show list</summary>
-
-| Service            | Docker image              | Link               |
-| ------------------ | ------------------------- | ------------------ |
-| `sslcerts`         | `alpine/mkcert`           | [GitHub](https://github.com/alpine-docker/multi-arch-docker-images/tree/master/mkcert) |
-| `dashboard`        | `portainer/portainer-ce`  | [Docs](https://docs.portainer.io/start/install-ce/server/docker) |
-| `reverseproxy`     | `traefik`                 | [Docs](https://doc.traefik.io/traefik/) |
-| `reverseproxy-waf` | `owasp/modsecurity-crs`   | [GitHub](https://github.com/coreruleset/modsecurity-crs-docker) |
-| `website`          | `php`                     | [Docker Hub](https://hub.docker.com/_/php) |
-| `db`               | `mariadb`                 | [Docs](https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/) |
-| `postfix-smtp`     | `mailserver/docker-mailserver` | [Docs](https://docker-mailserver.github.io/docker-mailserver/) |
-| `irc`              | `c0dy/unrealircd-anope`   | [Docker Hub](https://hub.docker.com/r/c0dy/unrealircd-anope) |
-| `irc-quizbot`      | `python:2.7-slim`         | [GitHub](https://github.com/zorgch/irc-quizbot) |
-| `stockticker`      | `python:3.9-slim`         | [GitHub](https://github.com/zorgch/zorg-docker/tree/dev/resources/python/stockticker) |
-| `servicealerts`    | `lorcas/docker-telegram-notifier` | [GitHub](https://github.com/luc-ass/docker-telegram-notifier) |
-| `sftp`             | `atmoz/sftp`              | [Docker Hub](https://hub.docker.com/r/atmoz/sftp/) |
-| `quake3`           | `jberrenberg/quake3`      | [GitHub](https://github.com/jberrenberg/docker-quake3/tree/master/quake3) |
-| `phpdoc`           | `phpdoc/phpdoc`           | [Docs](https://docs.phpdoc.org/guide/guides/running-phpdocumentor.html#running-phpdocumentor) |
-
-</details>
 
 <br><br>
 
