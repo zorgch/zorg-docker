@@ -401,7 +401,7 @@ services:
             - "traefik.tcp.routers.mailsmtp.tls=true"
             - "traefik.tcp.routers.mailsmtp.service=smtp-tcp-service"
             - "traefik.tcp.routers.mailsmtp.entrypoints=smtp-tcp"
-            - "traefik.tcp.routers.mailsmtp.rule=HostSNI(`*`)"
+            - "traefik.tcp.routers.mailsmtp.rule=HostSNI(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)"
             - "traefik.tcp.routers.mailsmtp.tls.certresolver=${USE_LETSENCRYPT:+letsencrypt}"
             - "traefik.tcp.services.smtp-tcp-service.loadbalancer.server.port=${MAILSERVER_PORT_SMTP:-587}"
             # -=[ SMTP with SSL/TLS (465) ]=-
