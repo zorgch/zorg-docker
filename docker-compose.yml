@@ -117,7 +117,7 @@ services:
             - "traefik.enable=true"
             # -=[ traefik Plugin: owasp/modsecurity-crs ]=-
             - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.maxbodysize=524288000"
-            - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.modsecurityurl=http://reverseproxy-waf:${HTTP_PORT:-80}"
+            - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.modsecurityurl=http://reverseproxy-waf:${REVERSEPROXY_HTTP_PORT:-8080}"
             - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.timeoutmillis=5000"
             - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.failuremode=continue" # Fail "open"
             # -=[ Global redirect to https ]=-
@@ -184,7 +184,7 @@ services:
         networks:
             - the-grid
         expose:
-            - "${HTTP_PORT:-80}"
+            - "${REVERSEPROXY_HTTP_PORT:-8080}"
         environment:
             # 📖 HOWTO https://github.com/coreruleset/modsecurity-crs-docker?tab=readme-ov-file#common-env-variables
             - LOGLEVEL=WARN
