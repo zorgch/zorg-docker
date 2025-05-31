@@ -142,7 +142,7 @@ if [ -f "/tmp/.env" ]; then
     cp -f /tmp/.env ${APACHE_PHP_ROOT:-/var/www}/html/.env
 elif [ -f "${APACHE_PHP_ROOT:-/var/www}/html/.env.example" ]; then
     # Or instead copy an EXAMPLE .env file to the right location
-    cp -f ${APACHE_PHP_ROOT:-/var/www}/html/ ${APACHE_PHP_ROOT:-/var/www}/html/.env
+    cp -f ${APACHE_PHP_ROOT:-/var/www}/html/.env.example ${APACHE_PHP_ROOT:-/var/www}/html/.env
 fi
 
 # Set ownership & permissions for all directories and files under /var/www/*
@@ -152,8 +152,11 @@ find ${APACHE_PHP_ROOT:-/var/www} -type f -exec chmod 644 {} \; # (644 = -rw-r--
 
 
 ########## Start the cron service & keep service running ##########
-crontab /etc/cron.d/custom
-service cron start
+if [ -f /etc/cron.d/custom ]; then
+    crontab -p /etc/cron.d/custom
+    service cron start
+    service cron status
+fi
 
 
 ########## Start Apache in the foreground ##########
