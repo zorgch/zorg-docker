@@ -86,7 +86,7 @@ services:
             --sslkey /certs/live/${DOMAINNAME}/privkey.key
         volumes:
             - "/var/run/docker.sock:/var/run/docker.sock"
-            - sslcerts-files:/certs/live/${DOMAINNAME}
+            - sslcerts-files:/certs/live/${DOMAINNAME}:ro # :ro = read-only
             - portainer-files:/data
 
     #-----------------------------
@@ -363,7 +363,7 @@ services:
             #"--ssl-key=/certs/privkey.key"
         ]
         volumes:
-            - sslcerts-files:/certs
+            - sslcerts-files:/certs:ro # :ro = read-only
             - database-files:/var/lib/mysql
             - "${HOST_PATH_LOGS:-./logs}/mariadb:/var/log/mariadb"
 
@@ -436,7 +436,7 @@ services:
             - RELAY_PASSWORD=${SMTP_RELAY_PASSWORD:-}
         volumes:
             #- /etc/localtime:/etc/localtime:ro # Should be obsolete because "TZ" - otherwise: use only on Linux hosts!
-            - sslcerts-files:/etc/letsencrypt:ro # :ro = read-only
+            - sslcerts-files:/etc/letsencrypt:rw # :rw = read+write (explicit)
             - mail-data-files:/var/mail
             - mail-state-files:/var/mail-state
             - "${HOST_PATH_LOGS:-./logs}/mailserver-smtp:/var/log/mail"
