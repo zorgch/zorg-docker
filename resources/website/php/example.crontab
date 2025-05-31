@@ -22,5 +22,15 @@
 # m h  dom mon dow   command
 
 # --------------
+# Docker Service Tests
 #* * * * * echo "Hello, Docker!" >> /proc/1/fd/1 2>&1
 #* * * * * /usr/local/bin/php -r '$result=mail("test-pocrx72rc@srv1.mail-tester.com","Test from Docker","This is a test email","From: \"Docker Cron\" <docker@zdocker.dev>\r\nContent-Type: text/plain; charset=UTF-8\r\n");$error=error_get_last();$message=$result?"SUCCESS":($error?"FAILED - ".$error["message"]:"FAILED - Unknown error");echo "[".date("Y-m-d H:i:s")."] Mail result: ".$message."\n";' >> /proc/1/fd/1 2>&1
+
+# Hourly :23
+23 * * * * /usr/local/bin/php -f /var/www/cron/stunde.php wwwroot=/var/www/html/ >> /proc/1/fd/1 2>&1
+
+# Daily 07:03
+3 7 * * * /usr/local/bin/php -f /var/www/cron/tag.php wwwroot=/var/www/html/ >> /proc/1/fd/1 2>&1
+
+# Weekly Sunday 23:19
+23 19 * * 7 /usr/local/bin/php -f /var/www/cron/woche.php wwwroot=/var/www/html/ >> /proc/1/fd/1 2>&1

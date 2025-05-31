@@ -203,8 +203,8 @@ Creat the a folder structure on your host machine that reflects the following:
     │
     └── quake3-baseq3/
         ├── autoexec.cfg    <-- Copy & adjust "quake3/example-autoexec.cfg" from repo
-        ├── pak0.pk3        <-- Should be sufficient
-        └── pak1-8.pk3      <-- Provide only if "Client/Server Mismatch" occurs
+        ├── pak0.pk3        <-- From a local licensed Quake3 installation
+        └── pak1-8.pk3      <-- Can be obtained at: https://ioquake3.org/extras/patch-data/
 ```
 
 #### 👥 Set correct permissions
@@ -324,7 +324,7 @@ git pull --depth 1 --rebase
 docker compose --profile all up -d
 ```
 
-* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `waf`, `website`, `db`, `postfix-smtp`, `irc`, `irc-quizbot`, `stockticker`
+* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `reverseproxy-waf`, `website`, `db`, `postfix-smtp`, `irc`, `irc-quizbot`, `stockticker`
 </details>
 
 <details>
@@ -333,7 +333,7 @@ docker compose --profile all up -d
 ```bash
 docker compose --profile webserver up -d
 ```
-* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `waf`, `website`, `db`, `postfix-smtp`
+* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `reverseproxy-waf`, `website`, `db`, `postfix-smtp`
 </details>
 
 <details>
@@ -396,14 +396,14 @@ The `docker-compose.yml` file uses Docker Service-profiles to group services int
 Some single services have their own profile, in order to prevent them from starting/stopping when using `docker compose` without any `--profile`.
 
 > [!TIP]
-> Multiple profiles can be combined: `docker compose --profile website --profile irc up`
+> Multiple profiles can be combined: `docker compose --profile webserver --profile irc up`
 
 | Profile        | Applicablae Docker Services   | Example Usage                      |
 | -------------- | ----------------------------- | ---------------------------------- |
 | `all`          | All general services          | `--profile all`                    |
 | `setup`        | `sslcerts` `postfix-smtp`     | `--profile setup`                  |
 | `status`       | `servicealerts` `dashboard` `reverseproxy`    | `--profile status` |
-| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `waf` `website` `db` `postfix-smtp` | `--profile webserver` |
+| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `reverseproxy-waf` `website` `db` `postfix-smtp` | `--profile webserver` |
 | `mailserver`   | `servicealerts` `dashboard` `reverseproxy` `postfix-smtp` | `--profile mailserver` |
 | `irc`          | `servicealerts` `dashboard` `irc` `irc-quizbot`           | `--profile irc`        |
 | `keepass`      | `servicealerts` `dashboard` `sftp`                        | `--profile keepass`    |
@@ -433,7 +433,7 @@ docker stats --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}
 
 NAME                   CPU %     MEM USAGE / LIMIT     MEM %
 zorg-reverseproxy      0.00%     69.01MiB / 1GiB       6.74%
-zorg-waf               0.03%     70.19MiB / 1GiB       6.85%
+zorg-reverseproxy-waf  0.03%     70.19MiB / 1GiB       6.85%
 zorg-mariadb           0.01%     133.8MiB / 4GiB       3.27%
 zorg-website           0.01%     8.855MiB / 4GiB       0.22%
 zorg-dashboard         0.00%     27.06MiB / 1GiB       2.64%
@@ -466,7 +466,7 @@ Contains site specific resources that are actively mapped from the Host to some 
 <summary>Examples of example files</summary>
 
 * `irc/anope-example-*` & `irc/unrealircd-example-*` --> MUST be adapted
-* `website/apache/example.conf` --> use as `000-default.conf`
+* `website/apache/example.conf` --> use as `apache.conf`
 * `website/php/example.crontab` --> use as `crontab`
 * `website/sendmail/example-msmtprc` --> use as `msmtprc`
 * `quake3/example-autoexec.cfg` --> use as `autoexec.cfg`
