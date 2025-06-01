@@ -1,0 +1,9 @@
+# Overwrite the default docker-mailserver postfix `main.cf` settings
+# - Docu: https://docker-mailserver.github.io/docker-mailserver/latest/config/advanced/override-defaults/postfix/
+
+# Ensure the Docker Gatway IP(-range) is in the allowed ranges
+# Reason: Host OS sent the mail via Docker’s gateway, not directly from localhost
+# - Docker Gateway IPv4 range: 172.19.0.0/16
+# - Docker Gateway IPv4 specific: 172.19.0.1
+# - Docker Gateway IPv6 specific: 2a01:4f8:c17:a056::1
+mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 172.19.0.0/16 172.19.0.1 2a01:4f8:c17:a056::1
