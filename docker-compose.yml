@@ -399,6 +399,7 @@ services:
             - "traefik.enable=true"
             # -=[ SMTP with STARTTLS (587) ]=-
             - "traefik.tcp.routers.mailsmtp.tls=true"
+            - "traefik.tcp.routers.mailsmtp.tls.passthrough=true"
             - "traefik.tcp.routers.mailsmtp.service=smtp-tcp-service"
             - "traefik.tcp.routers.mailsmtp.entrypoints=smtp-tcp"
             - "traefik.tcp.routers.mailsmtp.rule=HostSNI(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)"
