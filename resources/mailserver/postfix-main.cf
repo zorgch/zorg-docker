@@ -1,4 +1,4 @@
-# Overwrite the default docker-mailserver postfix `main.cf` settings
+# Overwrites the default docker-mailserver postfix `main.cf` settings
 # - Docu: https://docker-mailserver.github.io/docker-mailserver/latest/config/advanced/override-defaults/postfix/
 
 # Ensure the Docker Gatway IP(-range) is in the allowed ranges
