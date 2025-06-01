@@ -7,3 +7,7 @@
 # - Docker Gateway IPv4 specific: 172.19.0.1
 # - Docker Gateway IPv6 specific: 2a01:4f8:c17:a056::1
 mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 172.19.0.0/16 172.19.0.1 2a01:4f8:c17:a056::1
+
+# Relax the delivery restrictions, particulalry for internal SMTP_ONLY mode
+# IMPORTANT: when testing, particularly with non-registered DNS (e.g. zdocker.dev), then REMOVE the option: reject_unauth_destination
+smtpd_recipient_restrictions = permit_sasl_authenticated, permit_mynetworks, reject_unauth_destination
