@@ -440,7 +440,7 @@ services:
             - sslcerts-files:/etc/letsencrypt:rw # :rw = read+write (explicit)
             - mail-data-files:/var/mail
             - mail-state-files:/var/mail-state
-            - "${HOST_PATH_MAILSERVER_POSTFIX_CONFIG:-/dev/null}:/docker-data/dms/config/postfix-main.cf:ro" # :ro = read-only
+            - "${HOST_PATH_MAILSERVER_CONFIGS:-/dev/null}:/tmp/docker-mailserver/"
             - "${HOST_PATH_LOGS:-./logs}/mailserver-smtp:/var/log/mail"
 
     #--------------
