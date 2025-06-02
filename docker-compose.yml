@@ -601,9 +601,11 @@ services:
         labels:
             - "telegram-notifier.monitor=true"
             - "telegram-notifier.service-uri=${KEEPASS_HOST:+sftp://${KEEPASS_HOST}.${DOMAINNAME}:${KEEPASS_PORT_SFTP:-2222}}"
-        command: "${KEEPASS_SFTP_USER:-keepass}:${KEEPASS_SFTP_PASSWORD:-}:::share"
+        command: "${KEEPASS_SFTP_USER:-keepass}:${KEEPASS_SFTP_PASSWORD:-}:${KEEPASS_SFTP_USER_UID:-}::"
         volumes:
-            - "${HOST_PATH_KEEPASS_FILE:-/dev/null}:/home/${KEEPASS_SFTP_USER:-keepass}/share/${KEEPASS_KDBX_FILENAME:-database.kdbx}"
+            - "${HOST_PATH_KEEPASS_FILE:-/dev/null}:/home/${KEEPASS_SFTP_USER:-keepass}/share/${KEEPASS_KDBX_FILENAME:-}"
+            - "${HOST_PATH_KEEPASS_SSH_KEYS_DIR:-/etc/ssh}/ssh_host_ed25519_key:/etc/ssh/ssh_host_ed25519_key:ro" # :ro = read-only
+            - "${HOST_PATH_KEEPASS_SSH_KEYS_DIR:-/etc/ssh}/ssh_host_rsa_key:/etc/ssh/ssh_host_rsa_key:ro" # :ro = read-only
 
     #----------------------------
     # 🕹️ Quake 3 Arena Gameserver
