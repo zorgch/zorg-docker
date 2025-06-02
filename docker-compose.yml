@@ -129,6 +129,7 @@ services:
         command: >
             sh -c '
                 traefik \
+                --global.sendanonymoususage=false \
                 --entrypoints.web.address=:${HTTP_PORT:-80} \
                 --entrypoints.websecure.address=:${HTTP_PORT_SSL:-443} \
                 --entrypoints.php-xdebug.address=:${XDEBUG_PORT:-9003}/tcp \
@@ -405,13 +406,18 @@ services:
             - "traefik.tcp.routers.mailsmtp.rule=HostSNI(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)"
             - "traefik.tcp.routers.mailsmtp.tls.certresolver=${USE_LETSENCRYPT:+letsencrypt}"
             - "traefik.tcp.services.smtp-tcp-service.loadbalancer.server.port=${MAILSERVER_PORT_SMTP:-587}"
+            - "traefik.tcp.routers.internalrelay.entrypoints=smtp-tcp"
+            - "traefik.tcp.routers.internalrelay.rule=HostSNI(`${MAILSERVER_HOST_INTERNAL:+${MAILSERVER_HOST_INTERNAL}.${DOMAINNAME}}`)"
             # -=[ SMTP with SSL/TLS (465) ]=-
             - "traefik.http.routers.mailsmtp-ssl.tls=true"
+            - "traefik.http.routers.mailsmtp-ssl.tls.passthrough=true"
             - "traefik.http.routers.mailsmtp-ssl.service=smtp-ssl-service"
             - "traefik.http.routers.mailsmtp-ssl.entrypoints=smtp-ssl"
             - "traefik.http.routers.mailsmtp-ssl.rule=Host(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)"
             - "traefik.http.routers.mailsmtp-ssl.tls.certresolver=${USE_LETSENCRYPT:+letsencrypt}"
             - "traefik.http.services.smtp-ssl-service.loadbalancer.server.port=${MAILSERVER_PORT_SMTP_SSL:-465}"
+            - "traefik.http.routers.internalsmtp-ssl.entrypoints=smtp-ssl"
+            - "traefik.http.routers.internalsmtp-ssl.rule=Host(`${MAILSERVER_HOST_INTERNAL:+${MAILSERVER_HOST_INTERNAL}.${DOMAINNAME}}`)"
         environment:
             # 📖 HOWTO https://docker-mailserver.github.io/docker-mailserver/latest/config/environment/
             - TZ=${TIMEZONE:-Europe/Zurich}

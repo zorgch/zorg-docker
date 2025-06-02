@@ -1,0 +1,25 @@
+# Completely redefine submission service (port 587)
+submission/inet/syslog_name=postfix/submission
+submission/inet/smtpd_tls_security_level=encrypt
+submission/inet/smtpd_sasl_auth_enable=no
+submission/inet/smtpd_reject_unlisted_recipient=no
+submission/inet/smtpd_sasl_authenticated_header=yes
+submission/inet/smtpd_client_restrictions=permit_mynetworks,permit_sasl_authenticated,reject
+submission/inet/smtpd_relay_restrictions=permit_mynetworks,permit_sasl_authenticated,reject
+submission/inet/smtpd_recipient_restrictions=permit_mynetworks,permit_sasl_authenticated,reject_unauth_destination
+submission/inet/smtpd_sender_restrictions=permit_mynetworks
+submission/inet/milter_macro_daemon_name=ORIGINATING
+submission/inet/cleanup_service_name=sender-cleanup
+
+# (Optional) override submissions (port 465) as well
+submissions/inet/syslog_name=postfix/submissions
+submissions/inet/smtpd_tls_wrappermode=yes
+submissions/inet/smtpd_sasl_auth_enable=no
+submissions/inet/smtpd_reject_unlisted_recipient=no
+submissions/inet/smtpd_sasl_authenticated_header=yes
+submissions/inet/smtpd_client_restrictions=permit_mynetworks,permit_sasl_authenticated,reject
+submissions/inet/smtpd_relay_restrictions=permit_mynetworks,permit_sasl_authenticated,reject
+submissions/inet/smtpd_recipient_restrictions=permit_mynetworks,permit_sasl_authenticated,reject_unauth_destination
+submissions/inet/smtpd_sender_restrictions=permit_mynetworks
+submissions/inet/milter_macro_daemon_name=ORIGINATING
+submissions/inet/cleanup_service_name=sender-cleanup
