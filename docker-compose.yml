@@ -129,6 +129,7 @@ services:
         command: >
             sh -c '
                 traefik \
+                --global.sendanonymoususage=false \
                 --entrypoints.web.address=:${HTTP_PORT:-80} \
                 --entrypoints.websecure.address=:${HTTP_PORT_SSL:-443} \
                 --entrypoints.php-xdebug.address=:${XDEBUG_PORT:-9003}/tcp \
@@ -136,7 +137,7 @@ services:
                 --entrypoints.smtp-tcp.address=:${MAILSERVER_PORT_SMTP:-587}/tcp \
                 --entrypoints.smtp-ssl.address=:${MAILSERVER_PORT_SMTP_SSL:-465} \
                 --entrypoints.irc-ssl.address=:${IRC_PORT_SSL:-6697} \
-                --entrypoints.keepass-sftp.address=:${KEEPASS_PORT_SFTP:-22}/tcp \
+                --entrypoints.sftp.address=:${KEEPASS_PORT_SFTP:-2222}/tcp \
                 --entrypoints.quake3-udp.address=:${QUAKE3_PORT:-27960}/udp \
                 --entrypoints.web.http.redirections.entrypoint.to=websecure \
                 --entrypoints.web.http.redirections.entrypoint.scheme=https \
@@ -405,13 +406,18 @@ services:
             - "traefik.tcp.routers.mailsmtp.rule=HostSNI(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)"
             - "traefik.tcp.routers.mailsmtp.tls.certresolver=${USE_LETSENCRYPT:+letsencrypt}"
             - "traefik.tcp.services.smtp-tcp-service.loadbalancer.server.port=${MAILSERVER_PORT_SMTP:-587}"
+            - "traefik.tcp.routers.internalrelay.entrypoints=smtp-tcp"
+            - "traefik.tcp.routers.internalrelay.rule=HostSNI(`${MAILSERVER_HOST_INTERNAL:+${MAILSERVER_HOST_INTERNAL}.${DOMAINNAME}}`)"
             # -=[ SMTP with SSL/TLS (465) ]=-
             - "traefik.http.routers.mailsmtp-ssl.tls=true"
+            - "traefik.http.routers.mailsmtp-ssl.tls.passthrough=true"
             - "traefik.http.routers.mailsmtp-ssl.service=smtp-ssl-service"
             - "traefik.http.routers.mailsmtp-ssl.entrypoints=smtp-ssl"
             - "traefik.http.routers.mailsmtp-ssl.rule=Host(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)"
             - "traefik.http.routers.mailsmtp-ssl.tls.certresolver=${USE_LETSENCRYPT:+letsencrypt}"
             - "traefik.http.services.smtp-ssl-service.loadbalancer.server.port=${MAILSERVER_PORT_SMTP_SSL:-465}"
+            - "traefik.http.routers.internalsmtp-ssl.entrypoints=smtp-ssl"
+            - "traefik.http.routers.internalsmtp-ssl.rule=Host(`${MAILSERVER_HOST_INTERNAL:+${MAILSERVER_HOST_INTERNAL}.${DOMAINNAME}}`)"
         environment:
             # 📖 HOWTO https://docker-mailserver.github.io/docker-mailserver/latest/config/environment/
             - TZ=${TIMEZONE:-Europe/Zurich}
@@ -581,7 +587,7 @@ services:
             - "no-new-privileges:true"
         healthcheck:
             test: |
-                nc -z localhost ${KEEPASS_PORT_SFTP:-22} ||
+                nc -z localhost ${KEEPASS_PORT_SFTP:-2222} ||
                 exit 1
             start_period: 10s
             interval: 15s
@@ -589,11 +595,11 @@ services:
             retries: 5
         hostname: ${KEEPASS_HOST:+${KEEPASS_HOST}.${DOMAINNAME}}
         ports:
-            - "${KEEPASS_PORT_SFTP:-22}:22"
+            - "${KEEPASS_PORT_SFTP:-2222}:22"
         labels:
             - "telegram-notifier.monitor=true"
-            - "telegram-notifier.service-uri=${KEEPASS_HOST:+sftp://${KEEPASS_HOST}.${DOMAINNAME}:${KEEPASS_PORT_SFTP:-22}}"
-        command: "${KEEPASS_SFTP_USER:-keepass}:${KEEPASS_SFTP_PASSWORD:-}:1001"
+            - "telegram-notifier.service-uri=${KEEPASS_HOST:+sftp://${KEEPASS_HOST}.${DOMAINNAME}:${KEEPASS_PORT_SFTP:-2222}}"
+        command: "${KEEPASS_SFTP_USER:-keepass}:${KEEPASS_SFTP_PASSWORD:-}:1000"
         volumes:
             - "${HOST_PATH_KEEPASS_FILE:-/dev/null}:/home/${KEEPASS_SFTP_USER:-keepass}/${KEEPASS_KDBX_FILENAME:-database.kdbx}"
 
