@@ -75,15 +75,14 @@ price_initial=0
 price=0
 
 # Set custom User-Agent for all yfinance requests
-yf.utils.requests_session().headers.update({
-    "User-Agent": "Mozilla/5.0 (compatible; zorg on Docker/2.0; +https://zorg.ch; zorg Verein)"
-})
+session = requests.Session()
+session.headers['User-Agent'] = 'Mozilla/5.0 (compatible; zorg Verein/2.0; +https://zorg.ch; zorg on Docker)'
 
 # Get currency for symbol
 if currency == '':
     try:
         #print(f"========== DEBUG: Getting currency info for {symbol}...")
-        ticker_meta = yf.Ticker(symbol)
+        ticker_meta = yf.Ticker(symbol, session=session)
         ticker_info = ticker_meta.info
 
         # Try different ways to get currency
@@ -112,7 +111,7 @@ def getStock():
 
     try:
         # Get ticker data
-        ticker = yf.download(symbol, period="1d", auto_adjust=True)
+        ticker = yf.download(symbol, period="1d", auto_adjust=True, session=session)
         # Check if we got data
         if ticker.empty:
             print(f"No data received for {symbol}")
