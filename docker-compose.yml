@@ -539,6 +539,12 @@ services:
         mem_limit: "${MICROSERVICE_MEMORY:-32m}"
         security_opt:
             - "no-new-privileges:true"
+        healthcheck:
+            test: '[ ! -f /tmp/unhealthy ]'
+            start_period: 60s
+            interval: 60s
+            timeout: 60s
+            retries: 5
         labels:
             - "telegram-notifier.monitor=true"
         environment:
