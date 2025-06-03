@@ -70,6 +70,8 @@ sudo ufw allow 3306/tcp # db-Server
 sudo ufw allow 6667/tcp # irc-Server
 sudo ufw allow 6697/tcp # irc-Server (secure)
 sudo ufw allow 21/tcp # ftp-Server | NOTE: 22 reserved for ssh
+sudo ufw allow 25/tcp # postfix-smtp Server
+sudo ufw allow 587/tcp # postfix-smtp Server (STARTTLS)
 sudo ufw allow 27960/udp # quake3-Server
 ```
 </details>
@@ -84,11 +86,24 @@ Status: active
 
 To                         Action      From
 --                         ------      ----
-21/tcp                     ALLOW       Anywhere
-22/tcp                     ALLOW       Anywhere
-80/tcp                     ALLOW       Anywhere
+80                         ALLOW       Anywhere
 443                        ALLOW       Anywhere
+3306/tcp                   ALLOW       Anywhere
+6667/tcp                   ALLOW       Anywhere
+6697/tcp                   ALLOW       Anywhere
+21/tcp                     ALLOW       Anywhere
 27960/udp                  ALLOW       Anywhere
+587                        ALLOW       Anywhere
+25                         ALLOW       Anywhere
+80 (v6)                    ALLOW       Anywhere (v6)
+443 (v6)                   ALLOW       Anywhere (v6)
+3306/tcp (v6)              ALLOW       Anywhere (v6)
+6667/tcp (v6)              ALLOW       Anywhere (v6)
+6697/tcp (v6)              ALLOW       Anywhere (v6)
+21/tcp (v6)                ALLOW       Anywhere (v6)
+27960/udp (v6)             ALLOW       Anywhere (v6)
+587 (v6)                   ALLOW       Anywhere (v6)
+25 (v6)                    ALLOW       Anywhere (v6)
 ```
 </details>
 
@@ -156,8 +171,20 @@ Creat the a folder structure on your host machine that reflects the following:
     ├── .env               <-- Copy & adjust ".env.example" from repo
     ├── docker-compose.yml <-- Symbolic-linked ./zorg-docker/docker-compose.yml
     │
-    ├── apache/
-    │   ├── zorg.conf      <-- Copy & adjust "website/apache/example.conf" from repo
+    ├── code-docu/
+    │   ├── code/       <-- (Optional) Git clone of github.com/zorgch/zorg-code.git. Reference in .env
+    │   ├── docu/       <-- (Optional) Reference in .env
+    │   └── phpdoc.xml     <-- (Optional)
+    │
+    ├── website/           <-- zorg Website configs & data
+    │   ├── .env           <-- .env file for Website
+    │   ├── apache.conf      <-- Copy & adjust "website/apache/example.conf" from repo
+    │   │   └── data/          <-- Website /data/ folder & files
+    │   │   ├── files/         (user generated content for zorg website)
+    │   │   ├── gallery/
+    │   │   ├── tauschboerse/
+    │   │   └── ...
+    │   │
     │   ├── cronjobs/
     │   │   └── cronjobs.crontab   <-- Copy & adjust "website/php/example.crontab" from repo
     │   ├── modsec/
@@ -165,17 +192,6 @@ Creat the a folder structure on your host machine that reflects the following:
     │   │   └── WAF-RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf   <-- (Optional)
     │   └── sendmail/
     │       └── msmtprc    <-- Copy & adjust "website/sendmail/example-msmtprc" from repo
-    │
-    ├── code-docu/
-    │   └── phpdoc.xml     <-- (Optional)
-    │
-    ├── website/           <-- zorg Website configs & data
-    │   ├── .env           <-- .env file for Website
-    │   └── data/          <-- Website /data/ folder & files
-    │       ├── files/         (user generated content for zorg website)
-    │       ├── gallery/
-    │       ├── tauschboerse/
-    │       └── ...
     │
     ├── irc/
     │   ├── anope-configs/    <-- Copy & adjust "irc/anope-example-sensitive-includes" from repo
@@ -197,15 +213,23 @@ Creat the a folder structure on your host machine that reflects the following:
     │       ├── sensitive-server.conf
     │       └── sensitive-servicelink.conf
     │
-    ├── keepass/
-    │   └── vault.kdbx     <-- Put kdbx file here. Reference in .env
+    ├── keepass/         <-- Reference in.env. Only AFTER sftp started: put kdbx file here.
     │
-    ├── logs/              <-- Reference in .env - Sub-directories are created automatically
+    ├──quake3-baseq3/
+    │   ├── autoexec.cfg   <-- Copy & adjust "quake3/example-server.cfg" from repo
+    │   ├── pak0.pk3       <-- From a local licensed Quake3 installation
+    │   └── pak1-8.pk3     <-- Can be obtained at: https://ioquake3.org/extras/patch-data/
     │
-    └── quake3-baseq3/
-        ├── autoexec.cfg    <-- Copy & adjust "quake3/example-autoexec.cfg" from repo
-        ├── pak0.pk3        <-- From a local licensed Quake3 installation
-        └── pak1-8.pk3      <-- Can be obtained at: https://ioquake3.org/extras/patch-data/
+    └── logs/              <-- Reference in .env
+        ├── cron/          <-- Sub-directories MUST also be created manually!
+        ├── ircserver/
+        ├── mailserver/
+        ├── website/
+        │   ├── apache/
+        │   ├── php/
+        │   └── website/
+        ├── sftp/
+        └── quake3-server/
 ```
 
 <br>
