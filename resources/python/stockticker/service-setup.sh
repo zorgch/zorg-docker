@@ -47,6 +47,9 @@ for stock in "${TICKERS[@]}"; do
 
     python -u stock_notifications.py "$SYMBOL" "$TELEGRAM_TOKEN" "$TELEGRAM_CHAT" "$THRESHOLD" "$INTERVAL" &
     pids+=($!)
+
+    # Wait for 5 seconds to avoid parallel sqlite cache access
+    sleep 5
 done
 
 # Handle signals properly
