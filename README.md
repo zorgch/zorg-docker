@@ -27,6 +27,7 @@ zorg on Docker
   - [Single «phpDocumentor» service](#run-the-phpdocumentor-service-separately)
   - [🏷️ Docker services -> profiles mapping](#-docker-services---profiles-mapping)
 - [🩺 Resource usage & services health](#docker-resource-usage---services-health)
+- [🆙 Update all Docker images](#-update-all-docker-images)
 
 
 [👨‍🏫 Explanations](#-explanations)
@@ -478,6 +479,22 @@ The full-fledged Docker Management Dashboard (Portainer) can be accessed at:
 
 * `https://dockerstatus.DOMAINNAME`<br><sub>*Host can be adjusted in the `.env`*</sub>
 
+<br>
+
+## 🆙 Update all Docker images
+cd into the directory containing the `docker-compose.yml` (symlink), and run this shell command:
+
+> [!IMPORTANT]
+> Updating Docker images will KILL the running services - and they have to be started again!
+
+```bash
+cd /srv/<my-website>/<host>/
+for image in $(docker compose --profile all config | awk '/image:/ { print $2 }'); do docker pull "$image"; done;
+```
+
+> [!TIP]
+> The images can be scoped to update only services within a specific [Docker services profile](#-docker-services---profiles-mapping)
+
 
 <br><br>
 
@@ -552,120 +569,3 @@ mysqldump -h <db.host.domain> -P 3306 -u MYSQL_USER -p MYSQL_DATABASE > /path/to
 <br><br>
 
 ---
-# [DEPRECATED] zorg on Docker v1
-
-> [!CAUTION]
-> You can ignore this section, as it's overhauled (see above).
-
-## Docker configs
-Edit the file: `.env.docker`
-
-#### Setup on macOS
-(The following steps are copied from [this online documentation](https://reece.tech/posts/osx-docker-performance/))
-* **Recommendation**: use [OrbStack](https://orbstack.dev/) instead of Docker Desktop for Mac!
-
-## Build the Docker container & start the services
-Start container with all services.
-
-* in "detached mode" - without interative log in the Shell
-
-```
-cd /path/to/zorg-code/
-docker compose --project-directory ./ --file ./Docker/docker-compose.yml --env-file ./Docker/.env.docker up -d
-```
-
-* or with an interactive log in the Shell
-
-```
-cd /path/to/zorg-code/
-docker compose --project-directory ./ --file ./Docker/docker-compose.yml --env-file ./Docker/.env.docker up
-```
-
-## Usage
----
-### Service configurations
-#### MySQL connection config
-The MySQL database host name is `zorg-db` and needs be added to the PHP environment config file `/www/.env`.
-
-#### sendmail SMTP config
-Edit the msmtprc config file in the `./Docker/sendmail/` directory and replace the following placeholders with real values:
-* SMTP_HOST => mail.mymailserver.com
-* SMTP_EMAIL => myemail@mymailserver.com
-* SMTP_PASSWORD => password for your SMTP_EMAIL account
-
-Further details on the sendmail / msmtprc integration can be found here: [Send email on testing docker container with php and sendmail](https://stackoverflow.com/a/63977888/5750030)
-
-### Show the website
-[http://localhost/](http://localhost/)
-
-…or with a hosts entry pointing to `127.0.0.1` and SSL: [https://zorg.local/](https://zorg.local/)
-
-### Use PHPMyAdmin to manage the database
-[http://localhost:8080/](http://localhost:8080/)
-
-…or with a hosts entry pointing to `127.0.0.1`: [http://zorg.local:8080/](http://zorg.local:8080/)
-
-* **Server**: use the Docker's `zorg-db`-service hostname or IP-address
-* **Username**: use the defined `MYSQL_USER`-environment value
-* **Password**: use the defined `MYSQL_PASSWORD`-environment value
-
-#### Using a pre-existing local database
-The best way is to import an SQL-dump using the phpmysql Docker service at [http://localhost:8080/](http://localhost:8080/).
-
-Alternatively the path to a local database folder can be provided by overriding the ENV var `MYSQL_LOCAL_DATABASE_PATH`:
-```
-MYSQL_LOCAL_DATABASE_PATH=/path/to/my/mysql57 docker compose --project-directory ./ --file ./Docker/docker-compose.yml --env-file ./Docker/.env.docker up -d
-```
-
-#### Fix possible "Tablespace missing"-errors
-To fix the MySQL-Error 1812 `Tablespace is missing for table zooomclan . <table-name>` try the following command per affected `<table-name>`:
-
-```ALTER TABLE zooomclan.<table-name> IMPORT TABLESPACE```
-
-
-## Docker services inspection
-Find IP of a container service (can also be seen in the network details)
-
-`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' SERVICENAME`
-
-Inspect all running Docker services
-
-`docker ps`
-
-Inspect all container service details
-
-`docker container inspect SERVICENAME`
-
-Inspect a container's network details
-
-`docker network inspect CONTAINER_NETWORKNAME`
-
-Execute a shell command on a container service
-
-`docker exec -it SERVICENAME ls -la`
-
-* Example: show apache2's `000-default.conf` file:
-
-`docker exec -it zorg-web cat /etc/apache2/sites-available/000-default.conf`
-
-Enter into interactive shell mode for a container service
-
-`docker exec -it SERVICENAME sh`
-
-List all Environment Variables for a container service
-
-`docker exec SERVICENAME env`
-
-### docker-sync inspection
-!! Refresh docker-sync after updating the `docker-compose.yml`-file
-
-`docker-sync clean`
-
-Inspect running docker-sync services:
-
-`docker volume ls | grep -sync`
-
-### sendmail Logfile
-Inspect the logfile for sendmail / msmtprc:
-
-`docker exec -it zorg-web cat /var/log/sendmail.log`
