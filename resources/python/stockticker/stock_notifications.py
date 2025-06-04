@@ -33,6 +33,7 @@ import json
 import yfinance as yf
 import requests
 import urllib.parse
+import os
 
 # Check for stock symbol as 1st parameter
 if len(sys.argv) < 3:
@@ -104,66 +105,76 @@ def getStock():
     global price_initial
     global price
 
-    # Get ticker data
-    ticker = yf.download(symbol, period="1d")
+    try:
+        # Get ticker data
+        ticker = yf.download(symbol, period="1d", auto_adjust=True)
+        # Check if we got data
+        if ticker.empty:
+            print(f"No data received for {symbol}")
+            # Mark as unhealthy
+            with open("/tmp/unhealthy", "w") as f:
+                f.write("yfinance failed\n")
+            return
 
-    # Check if we got data
-    if ticker.empty:
-        print(f"No data received for {symbol}")
+        # Get the latest close price (last row, Close column)
+        price = float(ticker['Close'].iloc[-1].iloc[0])
+
+        # Get initial price if not set
+        if price_initial == 0:
+            price_initial = float(ticker['Open'].iloc[0].iloc[0])
+
+        # Round after conversion
+        price = round(price, 2)
+        price_initial = round(price_initial, 2)
+
+        # Debug output:
+        #print('========== DEBUG: price == price_initial: '+symbol+' ('+currency+')')
+        #print('========== DEBUG: Price initial: '+str(price_initial))
+        #print('========== DEBUG: Price current: '+str(price))
+
+        if price == price_initial:
+            #print('========== DEBUG: price == price_initial: '+str(price))
+            price_diff = 0
+            price_change_str = ''
+            price_diff_str = ''
+        elif price > price_initial:
+            #print('========== DEBUG: price > price_initial: '+str(price))
+            price_diff = round(price - price_initial, 2)
+            price_change_str = "📈up"
+            price_diff_str = f"({price_change_str} +{price_diff})"
+        else:
+            #print('========== DEBUG: other: '+str(price))
+            price_diff = round(price_initial - price, 2)
+            price_change_str = "📉dip"
+            price_diff_str = f"({price_change_str} -{price_diff})"
+
+        # Price diff above given threshold AND change of stock price
+        if abs(price_diff) >= price_threshold:
+            #print('========== DEBUG: abs(price_diff) >= price_threshold: '+str(symbol))
+            message=symbol+" @ *"+currency+" "+str("{0:,.2f}".format(price)).replace(',', '\'')+"* "+price_diff_str
+            message=message.replace("-","\-")
+            message=message.replace("+","\+")
+            message=message.replace(".","\.")
+            message=message.replace("(","\(")
+            message=message.replace(")","\)")
+            message=message.replace("?","\?")
+            message=message.replace("^","\^")
+            message=message.replace("$","\$")
+            message=urllib.parse.quote_plus(message)
+
+            send='https://api.telegram.org/bot' + bot_token + '/sendMessage?parse_mode=MarkdownV2&disable_notification=true&chat_id=' + bot_chatID + '&text=' + message
+            #print('========== DEBUG: send: '+send)
+            response=requests.get(send)
+            #print('========== DEBUG: response: '+str(response))
+            # Set new price_initial to check against future changes
+            price_initial = price
+    except Exception as e:
+        print(f"Error in yfinance: {e}")
+
+        # Signal an "unhealthy" state to Docker
+        with open("/tmp/unhealthy", "w") as f:
+            f.write("yfinance exception\n")
         return
-
-    # Get the latest close price (last row, Close column)
-    price = float(ticker['Close'].iloc[-1].iloc[0])
-
-    # Get initial price if not set
-    if price_initial == 0:
-        price_initial = float(ticker['Open'].iloc[0].iloc[0])
-
-    # Round after conversion
-    price = round(price, 2)
-    price_initial = round(price_initial, 2)
-
-    # Debug output:
-    #print('========== DEBUG: price == price_initial: '+symbol+' ('+currency+')')
-    #print('========== DEBUG: Price initial: '+str(price_initial))
-    #print('========== DEBUG: Price current: '+str(price))
-
-    if price == price_initial:
-        #print('========== DEBUG: price == price_initial: '+str(price))
-        price_diff = 0
-        price_change_str = ''
-        price_diff_str = ''
-    elif price > price_initial:
-        #print('========== DEBUG: price > price_initial: '+str(price))
-        price_diff = round(price - price_initial, 2)
-        price_change_str = "📈up"
-        price_diff_str = f"({price_change_str} +{price_diff})"
-    else:
-        #print('========== DEBUG: other: '+str(price))
-        price_diff = round(price_initial - price, 2)
-        price_change_str = "📉dip"
-        price_diff_str = f"({price_change_str} -{price_diff})"
-
-    # Price diff above given threshold AND change of stock price
-    if abs(price_diff) >= price_threshold:
-        #print('========== DEBUG: abs(price_diff) >= price_threshold: '+str(symbol))
-        message=symbol+" @ *"+currency+" "+str("{0:,.2f}".format(price)).replace(',', '\'')+"* "+price_diff_str
-        message=message.replace("-","\-")
-        message=message.replace("+","\+")
-        message=message.replace(".","\.")
-        message=message.replace("(","\(")
-        message=message.replace(")","\)")
-        message=message.replace("?","\?")
-        message=message.replace("^","\^")
-        message=message.replace("$","\$")
-        message=urllib.parse.quote_plus(message)
-
-        send='https://api.telegram.org/bot' + bot_token + '/sendMessage?parse_mode=MarkdownV2&disable_notification=true&chat_id=' + bot_chatID + '&text=' + message
-        #print('========== DEBUG: send: '+send)
-        response=requests.get(send)
-        #print('========== DEBUG: response: '+str(response))
-        # Set new price_initial to check against future changes
-        price_initial = price
 
 while True:
     getStock()

@@ -31,9 +31,7 @@ under certain conditions; see the LICENSE.'
 
 
 ########## Install libraries & extensions ##########
-pip install requests
-pip install schedule
-pip install yfinance
+pip install --upgrade --no-cache-dir requests schedule yfinance
 
 
 ########## Parse and run each Stock Ticker ##########
@@ -49,6 +47,9 @@ for stock in "${TICKERS[@]}"; do
 
     python -u stock_notifications.py "$SYMBOL" "$TELEGRAM_TOKEN" "$TELEGRAM_CHAT" "$THRESHOLD" "$INTERVAL" &
     pids+=($!)
+
+    # Wait for 5 seconds to avoid parallel sqlite cache access
+    sleep 5
 done
 
 # Handle signals properly
