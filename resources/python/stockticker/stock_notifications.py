@@ -26,14 +26,11 @@
 #  - Telegram Bot API: https://core.telegram.org/bots/api#sendmessage
 # ~~~~~
 import sys
+import gc
 import time
-import threading
-import schedule
-import json
-import yfinance as yf
 import requests
 import urllib.parse
-import os
+import yfinance as yf
 
 # Check for stock symbol as 1st parameter
 if len(sys.argv) < 3:
@@ -163,11 +160,15 @@ def getStock():
             message=urllib.parse.quote_plus(message)
 
             send='https://api.telegram.org/bot' + bot_token + '/sendMessage?parse_mode=MarkdownV2&disable_notification=true&chat_id=' + bot_chatID + '&text=' + message
-            #print('========== DEBUG: send: '+send)
-            response=requests.get(send)
-            #print('========== DEBUG: response: '+str(response))
-            # Set new price_initial to check against future changes
-            price_initial = price
+            try:
+                response = requests.get(send)
+                response.raise_for_status()  # Raise an exception for bad status codes
+                # Set new price_initial to check against future changes
+                price_initial = price
+            except requests.exceptions.RequestException as e:
+                print(f"Error sending Telegram message: {e}")
+                # Don't mark as unhealthy, just log the error and continue
+                return
     except Exception as e:
         print(f"Error in yfinance: {e}")
 
@@ -175,7 +176,12 @@ def getStock():
         with open("/tmp/unhealthy", "w") as f:
             f.write("yfinance exception\n")
         return
+    finally:
+        # Clean up memory
+        del ticker
+        gc.collect()  # Force garbage collection
 
 while True:
     getStock()
     time.sleep(repeat)
+    gc.collect()  # Additional garbage collection after each iteration
