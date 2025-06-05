@@ -171,6 +171,7 @@ Creat the a folder structure on your host machine that reflects the following:
     │
     ├── .env               <-- Copy & adjust ".env.example" from repo
     ├── docker-compose.yml <-- Symbolic-linked ./zorg-docker/docker-compose.yml
+    ├── docker-update.sh   <-- Symbolic-linked ./zorg-docker/docker-update.sh
     │
     ├── code-docu/
     │   ├── code/       <-- (Optional) Git clone of github.com/zorgch/zorg-code.git. Reference in .env
@@ -484,16 +485,24 @@ The full-fledged Docker Management Dashboard (Portainer) can be accessed at:
 ## 🆙 Update all Docker images
 cd into the directory containing the `docker-compose.yml` (symlink), and run this shell command:
 
-> [!IMPORTANT]
-> Updating Docker images will KILL the running services - and they have to be started again!
+> [!TIP]
+> The images can be scoped to update only services within a specific [Docker services profile](#-docker-services---profiles-mapping)
 
 ```bash
 cd /srv/<my-website>/<host>/
 for image in $(docker compose --profile all config | awk '/image:/ { print $2 }'); do docker pull "$image"; done;
 ```
 
-> [!TIP]
-> The images can be scoped to update only services within a specific [Docker services profile](#-docker-services---profiles-mapping)
+Alternatively, use the `docker-update.sh` script (can also be run via Host's cron):
+
+```bash
+cd /srv/<my-website>/<host>/
+./docker-update.sh
+```
+
+
+> [!CAUTION]
+> Updating Docker images will NOT renew running services - they have to be [rebuilt](#manage-general-services)!
 
 
 <br><br>
