@@ -376,8 +376,8 @@ services:
         platform: ${OS_PLATFORM:-linux/x86_64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-mailserver
         restart: on-failure:3
-        cpus: "${MAILSERVER_CPU:-0.2}"
-        mem_limit: "${MAILSERVER_MEMORY:-64m}"
+        cpus: "${MAILSERVER_CPU:-0.5}"
+        mem_limit: "${MAILSERVER_MEMORY:-128m}"
         security_opt:
             - "no-new-privileges:true"
         hostname: ${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}
@@ -459,7 +459,7 @@ services:
         platform: linux/x86_64 # ℹ️ Has no arm64 support
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-ircdserver
         restart: on-failure:5
-        cpus: "${IRC_CPU:-0.25}"
+        cpus: "${IRC_CPU:-0.5}"
         mem_limit: "${IRC_MEMORY:-256m}"
         security_opt:
             - "no-new-privileges:true"
@@ -510,8 +510,8 @@ services:
         depends_on:
             irc:
                 condition: service_healthy
-        cpus: "${MICROSERVICE_CPU:-0.1}"
-        mem_limit: "${MICROSERVICE_MEMORY:-32m}"
+        cpus: "${MICROSERVICE_CPU:-0.2}"
+        mem_limit: "${MICROSERVICE_MEMORY:-128m}"
         security_opt:
             - "no-new-privileges:true"
         networks:
@@ -534,8 +534,8 @@ services:
         platform: ${OS_PLATFORM:-linux/x86_64}
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-stockticker
         restart: on-failure:1
-        cpus: "${MICROSERVICE_CPU:-0.1}"
-        mem_limit: "${MICROSERVICE_MEMORY:-32m}"
+        cpus: "${MICROSERVICE_CPU:-0.2}"
+        mem_limit: "${MICROSERVICE_MEMORY:-128m}"
         security_opt:
             - "no-new-privileges:true"
         healthcheck:
@@ -588,8 +588,8 @@ services:
         platform: linux/x86_64 # ℹ️ Has no arm64 support
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-keepass
         restart: on-failure:3
-        cpus: "${KEEPASS_SFTP_CPU:-0.1}"
-        mem_limit: "${KEEPASS_SFTP_MEMORY:-64m}"
+        cpus: "${KEEPASS_SFTP_CPU:-0.25}"
+        mem_limit: "${KEEPASS_SFTP_MEMORY:-256m}"
         security_opt:
             - "no-new-privileges:true"
         healthcheck:
@@ -623,7 +623,7 @@ services:
         container_name: ${COMPOSE_PROJECT_NAME:-docker}-quake3server
         restart: on-failure:3
         cpus: "${QUAKE3_CPU:-2.0}"
-        mem_limit: "${QUAKE3_MEMORY:-3072m}"
+        mem_limit: "${QUAKE3_MEMORY:-2560m}"
         security_opt:
             - "no-new-privileges:true"
         healthcheck:
