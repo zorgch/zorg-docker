@@ -31,7 +31,7 @@ under certain conditions; see the LICENSE.'
 
 
 ########## Install libraries & extensions ##########
-pip install --upgrade --no-cache-dir requests schedule yfinance
+pip install --upgrade --no-cache-dir --only-binary=:all: requests schedule yfinance
 
 
 ########## Parse and run each Stock Ticker ##########
