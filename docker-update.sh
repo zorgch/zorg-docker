@@ -62,7 +62,7 @@ MESSAGE_TIMER_C01="1️⃣"
 MESSAGE_START="⚙️ STARTING: *$DOCKER_STACK* updates..."
 MESSAGE_UPDATE="🆙 Update available for *__DOCKERIMAGE__*"
 MESSAGE_NOUPDATE="⏩ No update for *__DOCKERIMAGE__*, skipping."
-MESSAGE_ERRUPDATE="⚠️ Missing update status for *__DOCKERIMAGE__*"
+MESSAGE_ERRUPDATE="⚠️ Something went wrong checking *__DOCKERIMAGE__*, please investigate."
 MESSAGE_RESTARTING="🔁 Rebuilding *__DOCKERIMAGE__*..."
 MESSAGE_FINISH="✅ ALL DONE: *$DOCKER_STACK* is up-to-date!
 > check $DOCKER_STATUS_URL"
@@ -108,8 +108,12 @@ send_telegram_message "$MESSAGE_START"
 # Source: https://stackoverflow.com/a/44953583
 for image in $(docker compose --profile all config | awk '/image:/ { print $2 }')
 do
-    # Checking image
-    DOCKER_PULL_STATUS=$(docker pull "$image" 2>&1)
+    # Checking image for update status
+    if ! DOCKER_PULL_STATUS=$(docker pull "$image" 2>&1); then
+        MESSAGE="${MESSAGE_ERRUPDATE/__DOCKERIMAGE__/$image}"
+        send_telegram_message "$MESSAGE"
+        continue
+    fi
 
     # New Image available
     if echo "$DOCKER_PULL_STATUS" | grep -q "Downloaded newer image"; then
