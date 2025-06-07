@@ -536,6 +536,7 @@ services:
         restart: on-failure:1
         cpus: "${MICROSERVICE_CPU:-0.2}"
         mem_limit: "${MICROSERVICE_MEMORY:-128m}"
+        memswap_limit: 512mb
         security_opt:
             - "no-new-privileges:true"
         healthcheck:
