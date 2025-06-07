@@ -1,0 +1,145 @@
+#                                                               ██████   ██████   ██████ ██   ██ ███████ ██████
+#   ███████  ██████  ████    ██████       ██████  ████   ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
+#      ███  ██    ██ ██  ██ ██           ██    ██ ██ ██  ██     ██   ██ ██    ██ ██      █████   █████   ██████
+#    ███    ██    ██ ██     ██   ███     ██    ██ ██  ██ ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
+#   ███████  ██████  ██      ██████       ██████  ██   ████     ██████   ██████   ██████ ██   ██ ███████ ██   ██
+# Portable, Server independent, Docker-based code to get the zorg Websites and Services up, running, and hosted.
+# Copyright (C) 2024  zorg Verein <https://github.com/zorgch>
+#
+#   This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+#
+#   This program comes with ABSOLUTELY NO WARRANTY; for details read the README.
+# This is free software, and you are welcome to redistribute it
+# under certain conditions; see the LICENSE.
+
+# Logrotate example configuration for zorg on Docker.
+#
+# Schedule to execute with logrotate cron job:
+# $ crontab -e
+#   @daily /usr/sbin/logrotate -s /srv/zorgch/live/logs/logrotate.status /srv/zorgch/live/logs/logrotate.conf
+#
+
+/srv/<my-website>/<host>/logs/website/apache/*.log
+{
+    daily
+    missingok
+    dateext
+    rotate 15
+    compress
+    delaycompress
+    copytruncate
+    notifempty
+    create 640 www-data www-data
+}
+
+/srv/<my-website>/<host>/logs/reverseproxy-owasp/*.log
+{
+    daily
+    missingok
+    dateext
+    rotate 10
+    compress
+    delaycompress
+    copytruncate
+    notifempty
+    #create 640 <user> docker
+}
+
+/srv/<my-website>/<host>/logs/website/sendmail/msmtp.log
+{
+    weekly
+    missingok
+    rotate 4
+    compress
+    delaycompress
+    notifempty
+    copytruncate
+    create 640 root root
+}
+
+/srv/<my-website>/<host>/logs/mailserver-smtp/*.log
+{
+    daily
+    missingok
+    dateext
+    rotate 10
+    compress
+    delaycompress
+    copytruncate
+    notifempty
+    create 640 root root
+}
+
+/srv/<my-website>/<host>/logs/irc-server/unrealircd/*.log
+{
+    daily
+    missingok
+    dateext
+    rotate 10
+    compress
+    delaycompress
+    copytruncate
+    notifempty
+    #create 640 <user> <group>
+}
+
+/srv/<my-website>/<host>/logs/irc-server/anope/*.log
+{
+    daily
+    missingok
+    dateext
+    rotate 10
+    compress
+    delaycompress
+    copytruncate
+    notifempty
+    #create 640 <user> <group>
+}
+
+/srv/<my-website>/<host>/logs/quake3-server/*.log
+{
+    size 1M
+    missingok
+    dateext
+    rotate 10
+    compress
+    delaycompress
+    copytruncate
+    notifempty
+    #create 640 <user> <group>
+}
+
+/srv/<my-website>/<host>/logs/cron/*.log
+{
+    size 1M
+    rotate 10
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    #create 640 <user> <group>
+}
+
+/srv/<my-website>/<host>/logs/docker-update.log
+{
+    monthly
+    rotate 6
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    #create 640 <user> <group>
+}
