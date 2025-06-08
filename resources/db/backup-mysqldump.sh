@@ -79,8 +79,9 @@ else
 fi
 [ -n "$DATABASE_USER" ] && DB_USER="$DATABASE_USER"
 [ -n "$DATABASE_PASSWORD" ] && DB_PASS="$DATABASE_PASSWORD"
-[ -n "$MARIADB_ROOT_PASSWORD" ] && DB_USER="root"
-[ -n "$MARIADB_ROOT_PASSWORD" ] && DB_PASS="$MARIADB_ROOT_PASSWORD"
+[[ -n "$MARIADB_ROOT_PASSWORD" && "$MARIADB_DISABLE_ROOT_PASSWORD" = 'yes' ]] && DB_USER="root"
+[[ "$DB_USER" = 'root' && -n "$MARIADB_ROOT_PASSWORD" ]] && DB_PASS="${MARIADB_ROOT_PASSWORD}"
+[[ "$DB_USER" = 'root' && "$MARIADB_DISABLE_ROOT_PASSWORD" = 'yes' ]] && DB_PASS=
 
 # Container name based on project
 CONTAINER="$COMPOSE_PROJECT_NAME-mariadb"
@@ -90,31 +91,37 @@ DATE=$(date +%F-%H_%M_%S)
 OUTFILE="${BACKUP_DIR}/backup-${DB_NAME}-${DATE}.sql"
 
 # Messages
-MESSAGE_START="⚙️ STARTING: *$CONTAINER* backup of DB \`$DB_NAME\`..."
-MESSAGE_BACKUP="☑️ *SUCCESSFULLY* mariadb-dump'ed *$DB_NAME* to
-> \`$OUTFILE\`"
+MESSAGE_START="⚙️ STARTING: *$CONTAINER* backup of DB \`$DB_NAME\`…"
+MESSAGE_BACKUP="☑️ *SUCCESSFULLY* mariadb-dump'ed *$DB_NAME* to\n> \`$OUTFILE\`"
 MESSAGE_ERRBACKUP="⚠️ *FAILED* to backup $DB_NAME, please investigate: "
-MESSAGE_FINISH="✅ ALL DONE: *$DOCKER_STACK* backup of *$DB_NAME* finished!"
+MESSAGE_FINISH="✅ ALL DONE: *$CONTAINER* DB backup finished!"
 
 send_telegram_message() {
+    # [_*[\]()~`>#+\-=|{}.!]/\\&
     local STATUSMESSAGE="$1"
-    local STATUSMESSAGE="${STATUSMESSAGE//:/\\:}" # Escape ":"
-    local STATUSMESSAGE="${STATUSMESSAGE//_/\\_}" # Escape "_"
-    local STATUSMESSAGE="${STATUSMESSAGE//-/\\-}" # Escape "-"
-    local STATUSMESSAGE="${STATUSMESSAGE//+/\\+}" # Escape "+"
-    local STATUSMESSAGE="${STATUSMESSAGE//,/\\,}" # Escape ","
-    local STATUSMESSAGE="${STATUSMESSAGE//./\\.}" # Escape "."
-    local STATUSMESSAGE="${STATUSMESSAGE//'/\\'}" # Escape "'"
-    local STATUSMESSAGE="${STATUSMESSAGE//!/\\!}" # Escape "!"
+    # Obfuscate critical information
+    STATUSMESSAGE="${STATUSMESSAGE//$DB_PASS/********}"
+    # Escape special characters
+    STATUSMESSAGE="${STATUSMESSAGE//\"/\\\"}" # Escape literal "
+    STATUSMESSAGE="${STATUSMESSAGE//\'/\\\'}" # Escape literal '
+    STATUSMESSAGE="${STATUSMESSAGE//-/\\\-}" # Escape "-" (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//_/\\\_}" # Escape "_" (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//./\\\.}" # Escape "." (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//+/\\\+}" # Escape "+" (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//=/\\\=}" # Escape "=" (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//(/\\\(}" # Escape "(" (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//)/\\\)}" # Escape ")" (Character is reserved)
 
     # Only send if both token and chat_id are set and message is not empty
     if [[ -n "$BOT_TOKEN" && -n "$CHAT_ID" && -n "$STATUSMESSAGE" ]]; then
-        curl -sS --fail -X POST -H "Content-Type:multipart/form-data" \
-         -F chat_id="$CHAT_ID" \
-         -F text="$STATUSMESSAGE" \
-         -F message_thread_id="$CHAT_TOPIC_ID" \
-         -F parse_mode=MarkdownV2 \
-         "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" 2>&1 || true
+        local THREAD_PART=""
+        if [[ -n "$CHAT_TOPIC_ID" ]]; then
+            THREAD_PART=" \"message_thread_id\": \"$CHAT_TOPIC_ID\","
+        fi
+        curl -sS --fail -X POST \
+          -H "Content-Type: application/json" \
+          -d "{\"parse_mode\": \"MarkdownV2\", \"chat_id\": \"$CHAT_ID\",$THREAD_PART \"text\": \"${STATUSMESSAGE}\"}" \
+          "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" 2>&1 || true
     fi
 }
 
