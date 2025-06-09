@@ -11,10 +11,10 @@ zorg on Docker
 [🔖 Pre-requisites](#-pre-requisites)
 - [git installation](#git-installation)
 - [Docker installation](#docker-installation)
-  - [🔥 Firewall ports configuration](#-firewall-ports-configuration)
   - [🌐 DNS-records and Hosts](#-dns-records-and-hosts)
 - [📂 Folder structure setup](#-folder-structure-setup)
 - [💾 Docker images](#-docker-images)
+  - [🧬 Docker Networks](#-docker-networks)
 
 [🏁 Getting started](#-getting-started)
 - [Initial setup (one time only)](#initial-setup-one-time-only)
@@ -29,10 +29,11 @@ zorg on Docker
 - [🩺 Resource usage & services health](#docker-resource-usage---services-health)
 - [🆙 Update all Docker images](#-update-all-docker-images)
 
-
 [👨‍🏫 Explanations](#-explanations)
 - [🧪 Debugging Docker Services](#-debugging-docker-services)
+- [🔥 Firewall ports configuration](#-firewall-ports-configuration)
 - [📄 The `/zorg-docker/resources`-directory & files](#-the-zorg-dockerresources-directory--files)
+- [🔁 logrotate handling](#-logrotate-must-be-done-on-the-host)
 - [💿 Import/export SQL-dumps with MariaDB](#-importexport-sql-dumps-with-mariadb)
 
 <br>
@@ -52,61 +53,6 @@ Following the [official installation instructions](https://docs.docker.com/engin
 
 > [!TIP]
 > On Ubuntu it's advised *against installing via snap*, as this may cause compatibility issues!
-
-<br>
-
-#### 🔥 Firewall ports configuration
-
-Ensure the Host machine's firewall is configured to expose & allow access through the required ports for different Docker Services:
-
-<details>
-<summary>Allow a port - or port range</summary>
-
-(non-conclusive, depends on what `ports:` are set in the `.env` file)
-
-```bash
-sudo ufw allow 80 # webserver/reverseproxy http
-sudo ufw allow 443 # webserver/reverseproxy https
-sudo ufw allow 3306/tcp # db-Server
-sudo ufw allow 6667/tcp # irc-Server
-sudo ufw allow 6697/tcp # irc-Server (secure)
-sudo ufw allow 21/tcp # ftp-Server | NOTE: 22 reserved for ssh
-sudo ufw allow 25/tcp # postfix-smtp Server
-sudo ufw allow 587/tcp # postfix-smtp Server (STARTTLS)
-sudo ufw allow 27960/udp # quake3-Server
-```
-</details>
-
-<details>
-<summary>Inspect all rules - i.e. allowed ports</summary>
-
-```bash
-% sudo ufw status
-
-Status: active
-
-To                         Action      From
---                         ------      ----
-80                         ALLOW       Anywhere
-443                        ALLOW       Anywhere
-3306/tcp                   ALLOW       Anywhere
-6667/tcp                   ALLOW       Anywhere
-6697/tcp                   ALLOW       Anywhere
-21/tcp                     ALLOW       Anywhere
-27960/udp                  ALLOW       Anywhere
-587                        ALLOW       Anywhere
-25                         ALLOW       Anywhere
-80 (v6)                    ALLOW       Anywhere (v6)
-443 (v6)                   ALLOW       Anywhere (v6)
-3306/tcp (v6)              ALLOW       Anywhere (v6)
-6667/tcp (v6)              ALLOW       Anywhere (v6)
-6697/tcp (v6)              ALLOW       Anywhere (v6)
-21/tcp (v6)                ALLOW       Anywhere (v6)
-27960/udp (v6)             ALLOW       Anywhere (v6)
-587 (v6)                   ALLOW       Anywhere (v6)
-25 (v6)                    ALLOW       Anywhere (v6)
-```
-</details>
 
 <br>
 
@@ -217,10 +163,10 @@ Creat the a folder structure on your host machine that reflects the following:
     │
     ├── keepass/         <-- Reference in.env. Only AFTER sftp started: put kdbx file here.
     │
-    ├──quake3-baseq3/
-    │   ├── autoexec.cfg   <-- Copy & adjust "quake3/example-server.cfg" from repo
-    │   ├── pak0.pk3       <-- From a local licensed Quake3 installation
-    │   └── pak1-8.pk3     <-- Can be obtained at: https://ioquake3.org/extras/patch-data/
+    ├──quake3-baseq3/   <-- Reference in.env.
+    │   ├── q3config_server.cfg   <-- Copy & adjust "quake3/example-server.cfg" from repo
+    │   ├── pak0.pk3              <-- From a local licensed Quake3 installation
+    │   └── pak1-8.pk3            <-- Can be obtained at: https://ioquake3.org/extras/patch-data/
     │
     └── logs/              <-- Reference in .env
         ├── cron/          <-- Sub-directories MUST also be created manually!
@@ -263,6 +209,60 @@ Here's an overview of the underlaying Docker images used for the Docker Services
 
 <br>
 
+#### 🧬 Docker Networks
+
+```mermaid
+graph TD
+  %% Externe Netzwerke
+  subgraph External Networks
+    lb_http[loadbalance-http]
+    lb_tcp[loadbalance-tcp]
+    lb_udp[loadbalance-udp]
+  end
+
+  %% zorg Stack
+  subgraph zorg Stack
+    zorg[zorg services]
+    thegrid["the-grid (→ loadbalance-http)"]
+    infosuper["Information-Super-Highway (→ loadbalance-tcp)"]
+    attackbarrier["attack-barrier (→ loadbalance-udp)"]
+    ice["Intrusion-Countermeasures-Electronics (internal)"]
+  end
+
+  %% Weitere Stacks
+  subgraph other-stack-1
+    stack1[stack 1 services]
+    stack1_http["→ loadbalance-http"]
+    stack1_tcp["→ loadbalance-tcp"]
+    stack1_udp["→ loadbalance-udp"]
+  end
+
+  subgraph other-stack-2
+    stack2[stack 2 services]
+    stack2_http["→ loadbalance-http"]
+    stack2_tcp["→ loadbalance-tcp"]
+    stack2_udp["→ loadbalance-udp"]
+  end
+
+  %% Verbindungen zorg
+  zorg --> thegrid --> lb_http
+  zorg --> infosuper --> lb_tcp
+  zorg --> attackbarrier --> lb_udp
+  zorg --> ice
+
+  %% Verbindungen andere Stacks
+  stack1 --> stack1_http --> lb_http
+  stack1 --> stack1_tcp --> lb_tcp
+  stack1 --> stack1_udp --> lb_udp
+
+  stack2 --> stack2_http --> lb_http
+  stack2 --> stack2_tcp --> lb_tcp
+  stack2 --> stack2_udp --> lb_udp
+
+```
+
+<br><br>
+
 ### Initial setup (one time only)
 #### Git clone the `zorg-docker` repository
 
@@ -273,10 +273,10 @@ git clone -b <branch-name> --depth 1 https://github.com/zorgch/zorg-docker.git .
 > [!NOTE]
 > See below section for how to UPDATE the cloned git repository to get its latest changes.
 
-##### Copy the example `.env`-file
+##### Edit a copy of the `.env`-file
 
 ```bash
-cp ./zorg-docker/.env.example ./zorg-docker/.env
+cp ./zorg-docker/.env.example ./.env
 ```
 
 > [!IMPORTANT]
@@ -287,6 +287,22 @@ cp ./zorg-docker/.env.example ./zorg-docker/.env
 ```bash
 ln -s ./zorg-docker/docker-compose.yml ./docker-compose.yml
 ```
+
+#### Add exetnal Docker networks
+
+These networks allow OTHER Docker Stacks and Services to connect to the same network.
+
+```bash
+docker network create loadbalance-http
+docker network create loadbalance-tcp
+docker network create loadbalance-udp
+```
+
+> [!NOTE]
+> Why is this important?
+> A: Access to Docker Services in the Stack from other Docker Stacks and Services.
+> B: This is particularly important to use **1 central Reverse-Proxy** to route traffic to the services in the correct Stack.
+> C: Conclusion of A & B means: *no Port blockings of common Ports* (e.g. `80` or `443`) by 1 single Docker Stack!
 
 #### Validate the Docker services configurations
 
@@ -512,6 +528,63 @@ cd /srv/<my-website>/<host>/
 For **DEBUGGING mode** – with an *interactive log output* to the active shell - omit the `-d` flag when starting services:
 
 `docker compose --file ./website/docker-compose.yml up` <-- no `-d` flag
+
+<br>
+
+#### 🔥 Firewall ports configuration
+
+> [!TIP]
+> Docker **circumvents** the Host machine's firewall – so usually NO need (or not possible) to configure the Host machine's firewall!
+
+Ensure the Host machine's firewall is configured to expose & allow access through the required ports for different Docker Services:
+
+<details>
+<summary>Allow a port - or port range</summary>
+
+A non-conclusive, depends on what `ports:` are set in the `.env` file.
+
+> [!IMPORTANT]
+> Do NOT expose the default Database port `3306` to the world-wide-web!
+
+```bash
+sudo ufw allow 80 # webserver/reverseproxy http
+sudo ufw allow 443 # webserver/reverseproxy https
+sudo ufw allow 485/tcp # postfix-smtp Server
+sudo ufw allow 587/tcp # postfix-smtp Server (STARTTLS)
+sudo ufw allow 6667/tcp # irc-Server
+sudo ufw allow 6697/tcp # irc-Server (secure)
+sudo ufw allow 21/tcp # ftp-Server | NOTE: 22 reserved for ssh
+sudo ufw allow 27960/udp # quake3-Server
+```
+</details>
+
+<details>
+<summary>Inspect all rules - i.e. allowed ports</summary>
+
+```bash
+% sudo ufw status
+
+Status: active
+
+To                         Action      From
+--                         ------      ----
+80                         ALLOW       Anywhere
+443                        ALLOW       Anywhere
+587                        ALLOW       Anywhere
+6667/tcp                   ALLOW       Anywhere
+6697/tcp                   ALLOW       Anywhere
+21/tcp                     ALLOW       Anywhere
+27960/udp                  ALLOW       Anywhere
+80 (v6)                    ALLOW       Anywhere (v6)
+443 (v6)                   ALLOW       Anywhere (v6)
+587 (v6)                   ALLOW       Anywhere (v6)
+6667/tcp (v6)              ALLOW       Anywhere (v6)
+6697/tcp (v6)              ALLOW       Anywhere (v6)
+21/tcp (v6)                ALLOW       Anywhere (v6)
+27960/udp (v6)             ALLOW       Anywhere (v6)
+```
+</details>
+
 
 <br>
 
