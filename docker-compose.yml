@@ -104,11 +104,13 @@ services:
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-le}-portainer-https.service=${COMPOSE_PROJECT_NAME:-le}-portainer-ssl"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-le}-portainer-https.entrypoints=websecure"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-le}-portainer-https.rule=Host(`${DASHBOARD_HOST}.${DOMAINNAME}`)"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-le}-portainer-https.middlewares=ip-whitelist@docker"
             - "traefik.http.services.${COMPOSE_PROJECT_NAME:-le}-portainer-ssl.loadbalancer.server.port=9443"
             # --- HTTP only (:9000) ---
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-le}-portainer.service=${COMPOSE_PROJECT_NAME:-le}-portainer"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-le}-portainer.entrypoints=web"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-le}-portainer.rule=Host(`${DASHBOARD_HOST}.${DOMAINNAME}`)"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-le}-portainer.middlewares=ip-whitelist@docker"
             - "traefik.http.services.${COMPOSE_PROJECT_NAME:-le}-portainer.loadbalancer.server.port=9000"
         command: >
             --sslcert /certs/live/${DOMAINNAME}/fullchain.cert
@@ -156,6 +158,9 @@ services:
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             # -=[ traefik Reverse Proxy ]=-
             - "traefik.enable=true"
+            # --- traefik Middleware: ipAllowList ---
+            # 📖 HOWTO https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/ipallowlist/
+            - "traefik.http.middlewares.ip-whitelist.ipallowlist.sourcerange=${REVERSEPROXY_IP_ALLOWLIST:-}"
             # --- traefik Plugin: owasp/modsecurity-crs ---
             - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.maxbodysize=524288000"
             - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.modsecurityurl=http://reverseproxy-waf:8080"
