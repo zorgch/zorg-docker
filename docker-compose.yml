@@ -90,6 +90,9 @@ services:
             - "no-new-privileges:true"
         networks:
             - skynet
+        expose:
+            - "9000"
+            - "9443"
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
@@ -99,7 +102,7 @@ services:
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
             # --- HTTP with SSL/TLS (:9443) ---
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-le}-portainer-https.tls=true"
+            - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:-le}-portainer-https.tls=true}
             - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:-le}-portainer-https.tls.certresolver=letsencrypt}
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-le}-portainer-https.service=${COMPOSE_PROJECT_NAME:-le}-portainer-ssl"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-le}-portainer-https.entrypoints=websecure"
@@ -268,6 +271,9 @@ services:
             - the-grid
             - zion-mainframe
             - information-superhighway
+        expose:
+            - "80"
+            - "9003"
         healthcheck:
             test: git --version || exit 1
             start_period: 60s
@@ -435,6 +441,8 @@ services:
             - information-superhighway
         expose:
             - "25/tcp" # ℹ️ Unencrypted SMTP for docker-services internally
+            - "465/tcp" # ℹ️ SMTP with SSL/TLS
+            - "587/tcp" # ℹ️ SMTP with STARTTLS
         healthcheck:
             test: "ss --listening --tcp | grep -P 'LISTEN.+:smtp' || exit 1"
             start_period: 10s
@@ -514,6 +522,9 @@ services:
         hostname: ${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}
         networks:
             - information-superhighway
+        expose:
+            - "6667/tcp" # ℹ️ Unencrypted default IRC Port
+            - "6697/tcp" # ℹ️ SSL/TLS encrypted IRC Port
         healthcheck:
             test: |
                 ss -ln | grep -q '6667' ||
@@ -642,6 +653,8 @@ services:
         hostname: ${KEEPASS_HOST:+${KEEPASS_HOST}.${DOMAINNAME}}
         networks:
             - information-superhighway
+        expose:
+            - "22/tcp"
         healthcheck:
             test: |
                 nc -z localhost 22 ||
