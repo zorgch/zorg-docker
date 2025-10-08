@@ -187,7 +187,7 @@ services:
             # -=[ SFTP Server ]=-
             - --entryPoints.sftp.address=0.0.0.0:${KEEPASS_PORT_SFTP:-2222}/tcp
             # -=[ Website ]=-
-            - --entryPoints.php-xdebug.address=0.0.0.0:${XDEBUG_PORT:-9003}/tcp
+            - ${XDEBUG_PORT:+--entryPoints.php-xdebug.address=0.0.0.0:${XDEBUG_PORT:-9003}/tcp}
             - ${USE_LETSENCRYPT:+--entryPoints.web.http.redirections.entryPoint.to=websecure}
             - ${USE_LETSENCRYPT:+--entryPoints.web.http.redirections.entryPoint.scheme=https}
             - ${USE_LETSENCRYPT:+--entryPoints.websecure.http.tls=true}
@@ -302,9 +302,9 @@ services:
             - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.replacement=https://${DOMAINNAME}/$${2}}
             - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.permanent=true}
             # --- Configure Xdebug (only in DEV mode) - Port 9003 ---
-            - ${WEBSITE_IS_DEVELOPMENT:+traefik.tcp.routers.xdebug.entrypoints=php-xdebug}
-            - ${WEBSITE_IS_DEVELOPMENT:+traefik.tcp.routers.xdebug.rule=HostSNI(`*`)}
-            - ${WEBSITE_IS_DEVELOPMENT:+traefik.tcp.services.xdebug.loadbalancer.server.port=9003}
+            - ${XDEBUG_PORT:+traefik.tcp.routers.xdebug.entrypoints=php-xdebug}
+            - ${XDEBUG_PORT:+traefik.tcp.routers.xdebug.rule=HostSNI(`*`)}
+            - ${XDEBUG_PORT:+traefik.tcp.services.xdebug.loadbalancer.server.port=9003}
         environment:
             # 📖 HOWTO https://hub.docker.com/_/php
             TZ: ${TIMEZONE:-Europe/Zurich}
