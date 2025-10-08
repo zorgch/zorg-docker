@@ -720,7 +720,7 @@ services:
         environment:
             - GIT_REPO=${WEBSITE_GIT_REPO:-https://github.com/zorgch/zorg-code}
             - GIT_BRANCH=${WEBSITE_GIT_BRANCH:-main}
-        command: -d /data -t /docs # FIXME -c /phpdoc.xml | See github.com/phpDocumentor/phpDocumentor/issues/3830
+        command: -c /phpdoc.xml -d /data -t /docs
         volumes:
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/phpdocumentor/phpdoc.xml:/phpdoc.xml:ro" # :ro = read-only
             - "${HOST_PATH_PHPDOC_SOURCECODE:-/dev/null}:/data"
