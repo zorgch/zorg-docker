@@ -165,7 +165,7 @@ services:
             # 📖 HOWTO https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/ipallowlist/
             - "traefik.http.middlewares.ip-whitelist.ipallowlist.sourcerange=${REVERSEPROXY_IP_ALLOWLIST:-}"
             # --- traefik Plugin: owasp/modsecurity-crs ---
-            - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.maxbodysize=524288000"
+            - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.maxbodysize=448000000"
             - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.modsecurityurl=http://reverseproxy-waf:8080"
             - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.timeoutmillis=5000"
             - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.failuremode=continue" # Fail "open"
@@ -235,12 +235,11 @@ services:
             - LOGLEVEL=WARN
             - TZ=${TIMEZONE:-Europe/Zurich}
             - SERVER_NAME=${DOMAINNAME:-modsec-waf}
-            - BACKEND=http://website:80
+            - BACKEND=http://dummy
             #- ERRORLOG=/var/log/modsecurity/modsec_error.log : DISABLED -> default: /proc/self/fd/2
-            - APACHE_ALWAYS_TLS_REDIRECT=true
             - PROXY_PRESERVE_HOST=on
             - PROXY_ERROR_OVERRIDE=off
-            - SERVER_TOKENS=OS
+            - SERVER_TOKENS=ProductOnly
             # -=[ modsec specific ]=-
             - MODSEC_AUDIT_LOG_FORMAT=JSON
             - MODSEC_UPLOAD_KEEP_FILES=Off
@@ -492,7 +491,8 @@ services:
             - ENABLE_OPENDKIM=${MAILSERVER_ENABLE_DKIM:-0}
             - ENABLE_OPENDMARC=0
             - ENABLE_POLICYD_SPF=0
-            - SSL_TYPE=${USE_LETSENCRYPT:+letsencrypt} # {empty}->disabled | letsencrypt | manual->specify locations | self-signed
+            # Supported SSL_TYPE: {empty}->disabled | letsencrypt | manual->specify locations | self-signed
+            - SSL_TYPE=${USE_LETSENCRYPT:+letsencrypt}
             - SSL_DOMAIN=${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}
             # (Optional) Relay to external SMTP-provider (Proton, Gmail, etc.)
             - DEFAULT_RELAY_HOST=${SMTP_RELAY_SERVER:-}
