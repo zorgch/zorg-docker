@@ -191,7 +191,7 @@ services:
             - --entryPoints.smtp-tcp.address=0.0.0.0:${MAILSERVER_PORT_SMTP_SSL:-465}/tcp
             # -=[ IRC Server ]=-
             - --entryPoints.irc-tcp.address=0.0.0.0:${IRC_PORT:-6667}/tcp
-            - --entryPoints.irc-ssl.address=0.0.0.0:${IRC_PORT_SSL:-6697}/tcp
+            - --entryPoints.irc-tcp-ssl.address=0.0.0.0:${IRC_PORT_SSL:-6697}/tcp
             # -=[ SFTP Server ]=-
             - --entryPoints.sftp.address=0.0.0.0:${KEEPASS_PORT_SFTP:-2222}/tcp
             # -=[ Website ]=-
@@ -541,18 +541,20 @@ services:
             - "telegram-notifier.service-uri=${IRC_HOST:+irc://${IRC_HOST}.${DOMAINNAME}:${IRC_PORT_SSL:-6697}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
-            - "traefik.docker.network=${NETWORK_HTTP_SERVICES:-loadbalance-tcp}"
+            - "traefik.docker.network=${NETWORK_TCP_SERVICES:-loadbalance-tcp}"
             # --- IRC (6667/tcp) ---
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:-le}-irc.service=${COMPOSE_PROJECT_NAME:-le}-irc-tcp-service"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:-le}-irc.entrypoints=irc-tcp"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:-le}-irc.rule=HostSNI(`*`)"
-            - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:-le}-irc-tcp-service.loadbalancer.server.port=6667"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-tcp-service"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.entrypoints=irc-tcp"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.rule=HostSNI(`*`)"
+            - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-tcp-service.loadbalancer.server.port=6667"
             # --- IRC with SSL/TLS (6697/tcp) ---
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:-le}-irc-ssl.tls.passthrough=true"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:-le}-irc-ssl.service=${COMPOSE_PROJECT_NAME:-le}-irc-ssl-service"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:-le}-irc-ssl.entrypoints=irc-ssl"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:-le}-irc-ssl.rule=HostSNI(`*`)"
-            - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:-le}-irc-ssl-service.loadbalancer.server.port=6697"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.tls=true"
+            - ${USE_LETSENCRYPT:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.tls.certresolver=letsencrypt}
+            - ${USE_LETSENCRYPT:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.tls.passthrough=passthrough}
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.entrypoints=irc-tcp-ssl"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.rule=HostSNI(`${IRC_HOST}`)"
+            - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service.loadbalancer.server.port=6697"
         environment:
             - TERM=xterm
             - HOME=/home/ircd
