@@ -135,12 +135,12 @@ Creat the a folder structure on your host machine that reflects the following:
     │   │
     │   ├── cronjobs/
     │   │   └── cronjobs.crontab   <-- Copy & adjust "website/php/example.crontab" from repo
-    │   ├── modsec/
-    │   │   └── WAF-REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf   <-- (Optional)
-    │   │   └── WAF-RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf   <-- (Optional)
     │   └── sendmail/
     │       └── msmtprc    <-- Copy & adjust "website/sendmail/example-msmtprc" from repo
     │
+    ├── mailserver/        <-- (Optional) To further customize Postfix SMTP. Reference in .env
+    │   └── postfix-main.cf
+    |
     ├── irc/
     │   ├── anope-configs/    <-- Copy & adjust "irc/anope-example-sensitive-includes" from repo
     │   │   ├── sensitive-channels.conf
