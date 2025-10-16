@@ -198,6 +198,7 @@ Here's an overview of the underlaying Docker images used for the Docker Services
 | `reverseproxy`<br>+ `owasp-coraza-waf@file` | `traefik`<br>`coraza-http-wasm-traefik` | [Docs](https://doc.traefik.io/traefik/)<br>[GitHub](https://github.com/jcchavezs/coraza-http-wasm-traefik) |
 | `website`          | `php`                     | [Docker Hub](https://hub.docker.com/_/php) |
 | `db`               | `mariadb`                 | [Docs](https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/) |
+| `db-manager`       | `adminer`                 | [Docs](https://hub.docker.com/_/adminer/#how-to-use-this-image) |
 | `postfix-smtp`     | `mailserver/docker-mailserver` | [Docs](https://docker-mailserver.github.io/docker-mailserver/) |
 | `irc`              | `c0dy/unrealircd-anope`   | [Docker Hub](https://hub.docker.com/r/c0dy/unrealircd-anope) |
 | `irc-quizbot`      | `python:3.12-slim`        | [GitHub](https://github.com/zorgch/irc-quizbot) |
@@ -466,7 +467,7 @@ Some single services have their own profile, in order to prevent them from start
 | `all`          | All general services          | `--profile all`                       |
 | `setup`        | `sslcerts` `postfix-smtp`     | `--profile setup`                     |
 | `status`       | `servicealerts` `dashboard` `reverseproxy`      | `--profile status`  |
-| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `website` `db` `postfix-smtp` | `--profile webserver` |
+| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `website` `db` `db-manager` `postfix-smtp` | `--profile webserver` |
 | `mailserver`   | `servicealerts` `dashboard` `reverseproxy` `postfix-smtp` | `--profile mailserver` |
 | `irc`          | `servicealerts` `dashboard` `irc` `irc-quizbot` | `--profile irc`     |
 | `keepass`      | `servicealerts` `dashboard` `sftp`              | `--profile keepass` |
