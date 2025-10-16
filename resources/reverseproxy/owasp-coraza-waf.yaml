@@ -1,0 +1,55 @@
+#                                                               ██████   ██████   ██████ ██   ██ ███████ ██████
+#   ███████  ██████  ████    ██████       ██████  ████   ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
+#      ███  ██    ██ ██  ██ ██           ██    ██ ██ ██  ██     ██   ██ ██    ██ ██      █████   █████   ██████
+#    ███    ██    ██ ██     ██   ███     ██    ██ ██  ██ ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
+#   ███████  ██████  ██      ██████       ██████  ██   ████     ██████   ██████   ██████ ██   ██ ███████ ██   ██
+# Portable, Server independent, Docker-based code to get the zorg Websites and Services up, running, and hosted.
+# Copyright (C) 2024  zorg Verein <https://github.com/zorgch>
+#
+#   This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+#
+#   This program comes with ABSOLUTELY NO WARRANTY; for details read the README.
+# This is free software, and you are welcome to redistribute it
+# under certain conditions; see the LICENSE.
+
+# OWASP Coraza WAF - traefik Pluin : Configuration File
+# This file contains all WAF rules and can be customized without touching docker-compose.yml
+# - Documentation: https://github.com/corazawaf/coraza/blob/main/coraza.conf-recommended
+
+http:
+  middlewares:
+    owasp-coraza-waf:
+      plugin:
+        coraza:
+          directives:
+            # Basic WAF Configuration (but turn OFF response body scanning)
+            - SecRuleEngine On
+            - SecRequestBodyAccess On
+            - SecResponseBodyAccess Off
+            - SecResponseBodyMimeType text/plain text/html text/xml
+
+            # Security Rules
+            - SecRule ARGS "@contains <script" "id:102,phase:2,log,deny,status:403,msg:'XSS attempt detected'"
+            - SecRule ARGS "@contains union select" "id:103,phase:2,log,deny,status:403,msg:'SQL injection attempt detected'"
+            # -- Don’t inspect bodies for GET/HEAD
+            #- SecRule REQUEST_METHOD "@rx ^(?:GET|HEAD)$" "id:900100,phase:1,pass,ctl:requestBodyAccess=Off,nolog"
+
+            # Whitelist Rules
+            - SecRule REQUEST_URI "@rx \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$" "id:104,phase:1,pass,msg:'Allow static assets'"
+            # -- Allow POST requests with any body content (prevents breaking login/session endpoints)
+            - SecRule REQUEST_METHOD "@streq POST" "id:900140,phase:1,pass,nolog,ctl:requestBodyAccess=Off"
+            # -- Allow any incoming cookies (any name/value)
+            - SecRule REQUEST_COOKIES|REQUEST_COOKIES_NAMES "." "id:901100,phase:1,pass,nolog"
+            # -- Allow any Set-Cookie on http responses
+            - SecRule RESPONSE_HEADERS:Set-Cookie "." "id:901101,phase:3,pass,nolog"
