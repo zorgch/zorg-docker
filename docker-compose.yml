@@ -94,27 +94,22 @@ services:
         networks:
             - the-grid
         expose:
-            - "9000"
-            - "9443"
+            - "9000" # ℹ️ HTTP
+            - "9443" # ℹ️ HTTPS (TLS passthrough only)
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
-            - "telegram-notifier.service-uri=${DASHBOARD_HOST:+https://${DASHBOARD_HOST}.${DOMAINNAME}:${DASHBOARD_PORT}}"
+            - "telegram-notifier.service-uri=${DASHBOARD_HOST:+https://${DASHBOARD_HOST}.${DOMAINNAME}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
             - "traefik.docker.network=${NETWORK_HTTP_SERVICES:-loadbalance-http}"
-            # --- HTTP only (:9000) ---
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-http-service"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer.entryPoints=web-portainer"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer.rule=Host(`${DASHBOARD_HOST}.${DOMAINNAME}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer.middlewares=ip-whitelist@docker,compress-gzip"
-            # --- HTTP with SSL/TLS (:9443) ---
+            # --- HTTP with SSL/TLS (:9000) ---
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.tls=true"
             - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.tls.certresolver=letsencrypt}
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-http-service"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.entryPoints=websecure-portainer"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.entryPoints=websecure"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.rule=Host(`${DASHBOARD_HOST}.${DOMAINNAME}`)"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.middlewares=ip-whitelist@docker,compress-gzip"
             - "traefik.http.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-http-service.loadbalancer.server.port=9000"
@@ -147,7 +142,6 @@ services:
             # -=[ HTTP Services ]=-
             - "${HTTP_PORT:-80}:80/tcp"
             - "${HTTP_PORT_SSL:-443}:443/tcp"
-            - "${DASHBOARD_PORT:-9443}:9443/tcp"
             - "${XDEBUG_PORT:-9003}:9003/tcp"
             # -=[ Mail Server ]=-
             - "${MAILSERVER_PORT_SMTP:-587}:587/tcp"
@@ -191,12 +185,6 @@ services:
             - --providers.docker.exposedByDefault=false
             - --serversTransport.insecureSkipVerify=true
             # -=[ HTTP Services ]=-
-            - --entryPoints.web-portainer.address=:9000/tcp
-            - --entryPoints.web-portainer.http.redirections.entryPoint.to=websecure-portainer
-            - --entryPoints.web-portainer.http.redirections.entryPoint.scheme=https
-            - --entryPoints.web-portainer.http.redirections.entryPoint.permanent=true
-            - --entryPoints.websecure-portainer.address=:9443/tcp
-            - --entryPoints.websecure-portainer.http.tls=true
             - --entryPoints.web.address=:80/tcp
             - --entrypoints.web.http.maxheaderbytes=5120
             - --entryPoints.web.http.redirections.entryPoint.to=websecure
