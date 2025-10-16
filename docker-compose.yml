@@ -40,6 +40,7 @@ services:
             - "no-new-privileges:true"
         cap_drop:
             - ALL
+        network_mode: "none"
         entrypoint: sh
         command: >
             -c 'mkcert -install &&
@@ -53,7 +54,7 @@ services:
     # 🚨 Docker Service Notifications
     #--------------------------------
     servicealerts:
-        profiles: [ "all", "status", "webserver", "mailserver", "irc", "quake", "keepass" ]
+        profiles: [ "all", "status", "webserver", "mailserver", "irc", "keepass", "quake" ]
         image: lorcas/docker-telegram-notifier:latest
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}notifier
@@ -63,6 +64,8 @@ services:
         mem_limit: "${MICROSERVICE_MEMORY:-128m}"
         security_opt:
             - "no-new-privileges:true"
+        networks:
+            - the-grid
         environment:
             # ℹ️ Notifications only from whitelisted containers: "labels: telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - ONLY_WHITELIST=true
@@ -77,7 +80,7 @@ services:
     # 📊 Docker Services Insights
     #----------------------------
     dashboard:
-        profiles: [ "all", "status", "webserver", "mailserver", "irc", "quake", "keepass" ]
+        profiles: [ "all", "status", "webserver", "mailserver", "irc", "keepass", "quake" ]
         image: portainer/portainer-ce
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}dashboard
@@ -89,7 +92,7 @@ services:
         security_opt:
             - "no-new-privileges:true"
         networks:
-            - skynet
+            - the-grid
         expose:
             - "9000"
             - "9443"
@@ -98,27 +101,26 @@ services:
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
-            - "telegram-notifier.service-uri=${DASHBOARD_HOST:+https://${DASHBOARD_HOST}.${DOMAINNAME}}"
+            - "telegram-notifier.service-uri=${DASHBOARD_HOST:+https://${DASHBOARD_HOST}.${DOMAINNAME}:${DASHBOARD_PORT}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
             - "traefik.docker.network=${NETWORK_HTTP_SERVICES:-loadbalance-http}"
-            # --- HTTP with SSL/TLS (:9443) ---
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-https.tls=true"
-            - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-https.tls.certresolver=letsencrypt}
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-https.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-https.entrypoints=websecure"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-https.rule=Host(`${DASHBOARD_HOST}.${DOMAINNAME}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-https.middlewares=ip-whitelist@docker"
-            - "traefik.http.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.loadbalancer.server.port=9443"
             # --- HTTP only (:9000) ---
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer.entrypoints=web"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-http-service"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer.entryPoints=web-portainer"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer.rule=Host(`${DASHBOARD_HOST}.${DOMAINNAME}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer.middlewares=ip-whitelist@docker"
-            - "traefik.http.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer.loadbalancer.server.port=9000"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer.middlewares=ip-whitelist@docker,compress-gzip"
+            # --- HTTP with SSL/TLS (:9443) ---
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.tls=true"
+            - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.tls.certresolver=letsencrypt}
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-http-service"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.entryPoints=websecure-portainer"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.rule=Host(`${DASHBOARD_HOST}.${DOMAINNAME}`)"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.middlewares=ip-whitelist@docker,compress-gzip"
+            - "traefik.http.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-http-service.loadbalancer.server.port=9000"
         command: >
-            --sslcert /certs/live/${DOMAINNAME}/fullchain.cert
-            --sslkey /certs/live/${DOMAINNAME}/privkey.key
+            --tlscert /certs/live/${DOMAINNAME}/fullchain.cert
+            --tlskey /certs/live/${DOMAINNAME}/privkey.key
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - sslcerts-files:/certs/live/${DOMAINNAME}:ro # :ro = read-only
@@ -138,14 +140,14 @@ services:
         security_opt:
             - "no-new-privileges:true"
         networks:
-            - intrusion-countermeasures-electronics
-            - skynet
             - the-grid
             - information-superhighway
+            - slipgate-teleporter
         ports:
             # -=[ HTTP Services ]=-
-            - "${HTTP_PORT:-80}:80"
-            - "${HTTP_PORT_SSL:-443}:443"
+            - "${HTTP_PORT:-80}:80/tcp"
+            - "${HTTP_PORT_SSL:-443}:443/tcp"
+            - "${DASHBOARD_PORT:-9443}:9443/tcp"
             - "${XDEBUG_PORT:-9003}:9003/tcp"
             # -=[ Mail Server ]=-
             - "${MAILSERVER_PORT_SMTP:-587}:587/tcp"
@@ -154,25 +156,29 @@ services:
             - "${IRC_PORT:-6667}:6667/tcp"
             - "${IRC_PORT_SSL:-6697}:6697/tcp"
             # -=[ SFTP Server ]=-
-            - "${KEEPASS_PORT_SFTP:-2222}:22/tcp"
+            - "${KEEPASS_PORT_SFTP:-2222}:2222/tcp"
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
-            # -=[ traefik Reverse Proxy ]=-
-            - "traefik.enable=true"
+            # -=[ traefik Reverse Proxy : routing CONDITIONAL ]=-
+            - "traefik.enable=${REVERSEPROXY_DASHBOARD:-false}"
+            - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.service=api@internal}
             # --- traefik Middleware: ipAllowList ---
             # 📖 HOWTO https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/ipallowlist/
-            - "traefik.http.middlewares.ip-whitelist.ipallowlist.sourcerange=${REVERSEPROXY_IP_ALLOWLIST:-}"
             # --- traefik Plugin: owasp/modsecurity-crs ---
             - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.maxbodysize=448000000"
             - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.modsecurityurl=http://reverseproxy-waf:8080"
             - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.timeoutmillis=5000"
             - "traefik.http.middlewares.owaspmodsec.plugin.traefik-modsecurity-plugin.failuremode=continue" # Fail "open"
+            - "traefik.http.middlewares.ip-whitelist.ipallowlist.sourcerange=${REVERSEPROXY_IP_ALLOWLIST:-127.0.0.1/32,::1/128}"
+            # --- traefik Middleware: http-requests handling ---
+            - "traefik.http.middlewares.compress-gzip.compress=true"
+            - "traefik.http.middlewares.contenttype-add.contenttype=true"
             # --- Global redirect to HTTPS ---
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.rule=HostRegexp(`{host:.+}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.entrypoints=web"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.entryPoints=web"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.middlewares=redirect-to-https"
             - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
             - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
@@ -185,25 +191,33 @@ services:
             - --providers.docker.exposedByDefault=false
             - --serversTransport.insecureSkipVerify=true
             # -=[ HTTP Services ]=-
-            - --entryPoints.web.address=0.0.0.0:${HTTP_PORT:-80}
-            - --entryPoints.websecure.address=0.0.0.0:${HTTP_PORT_SSL:-443}
+            - --entryPoints.web-portainer.address=:9000/tcp
+            - --entryPoints.web-portainer.http.redirections.entryPoint.to=websecure-portainer
+            - --entryPoints.web-portainer.http.redirections.entryPoint.scheme=https
+            - --entryPoints.web-portainer.http.redirections.entryPoint.permanent=true
+            - --entryPoints.websecure-portainer.address=:9443/tcp
+            - --entryPoints.websecure-portainer.http.tls=true
+            - --entryPoints.web.address=:80/tcp
+            - --entrypoints.web.http.maxheaderbytes=5120
             - --entryPoints.web.http.redirections.entryPoint.to=websecure
             - --entryPoints.web.http.redirections.entryPoint.scheme=https
             - --entryPoints.web.http.redirections.entryPoint.permanent=true
+            - --entryPoints.websecure.address=:443/tcp
             - --entryPoints.websecure.http.tls=true
+            - --entrypoints.websecure.http.maxheaderbytes=5120
             # -=[ Website ]=-
-            - ${XDEBUG_PORT:+--entryPoints.php-xdebug.address=0.0.0.0:${XDEBUG_PORT:-9003}/tcp}
             # -=[ WAF ]=-
             - --experimental.plugins.traefik-modsecurity-plugin.modulename=github.com/acouvreur/traefik-modsecurity-plugin
             - --experimental.plugins.traefik-modsecurity-plugin.version=v1.3.0
+            - --entryPoints.php-xdebug.address=:9003/tcp
             # -=[ Mail Server ]=-
-            - --entryPoints.smtp-ssl.address=0.0.0.0:${MAILSERVER_PORT_SMTP:-587}/tcp
-            - --entryPoints.smtp-tcp.address=0.0.0.0:${MAILSERVER_PORT_SMTP_SSL:-465}/tcp
+            - --entryPoints.smtp-tcp.address=:587/tcp
+            - --entryPoints.smtp-ssl.address=:465/tcp
             # -=[ IRC Server ]=-
-            - --entryPoints.irc-tcp.address=0.0.0.0:${IRC_PORT:-6667}/tcp
-            - --entryPoints.irc-tcp-ssl.address=0.0.0.0:${IRC_PORT_SSL:-6697}/tcp
+            - --entryPoints.irc-tcp.address=:6667/tcp
+            - --entryPoints.irc-tcp-ssl.address=:6697/tcp
             # -=[ SFTP Server ]=-
-            - --entryPoints.sftp.address=0.0.0.0:${KEEPASS_PORT_SFTP:-2222}/tcp
+            - --entryPoints.sftp-tcp.address=:2222/tcp
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - sslcerts-files:/certs:rw # :rw = read+write (explicit)
@@ -271,8 +285,8 @@ services:
             - "no-new-privileges:true"
         networks:
             - the-grid
-            - zion-mainframe
             - information-superhighway
+            - zion-mainframe
         expose:
             - "80"
             - "9003"
@@ -302,27 +316,27 @@ services:
             # --- Main website handling ---
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.tls=true"
             - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.tls.certresolver=letsencrypt}
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.entrypoints=websecure"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.entryPoints=websecure"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.rule=Host(`${DOMAINNAME:-website}`) || Host(`www.${DOMAINNAME:-website}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=strip-www,owaspmodsec@docker"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=strip-www,owaspmodsec@docker,contenttype-add,compress-gzip"
             # --- Configure Redirect for Secondary Domainname ---
             - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls=true}
             - ${SECONDARY_DOMAINNAME:+${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls.certresolver=letsencrypt}}
-            - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.entrypoints=websecure}
+            - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.entryPoints=websecure}
             - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.rule=Host(`${SECONDARY_DOMAINNAME}`) || Host(`www.${SECONDARY_DOMAINNAME}`)}
             - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.regex=^https?://(www\.)?${SECONDARY_DOMAINNAME}/(.*)}
             - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.replacement=https://${DOMAINNAME}/$${2}}
             - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.permanent=true}
             - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.middlewares=redirect-to-main}
             # --- Configure Xdebug (only in DEV mode) - Port 9003 ---
-            - ${XDEBUG_PORT:+traefik.tcp.routers.xdebug.entrypoints=php-xdebug}
+            - ${XDEBUG_PORT:+traefik.tcp.routers.xdebug.entryPoints=php-xdebug}
             - ${XDEBUG_PORT:+traefik.tcp.routers.xdebug.rule=HostSNI(`*`)}
             - ${XDEBUG_PORT:+traefik.tcp.services.xdebug.loadbalancer.server.port=9003}
         environment:
             # 📖 HOWTO https://hub.docker.com/_/php
             TZ: ${TIMEZONE:-Europe/Zurich}
             APACHE_LOG_DIR: /var/log/apache2
-            APACHE_PHP_ROOT: ${WESBITE_ROOT_DIR:-/var/www}
+            APACHE_PHP_ROOT: ${WEBSITE_ROOT_DIR:-/var/www}
             APACHE_DOCUMENT_ROOT: ${WEBSITE_PUBLIC_DIR:-/var/www/html}
             DEVELOPMENT_MODE: ${WEBSITE_IS_DEVELOPMENT:-}
             INSTALL_APT_GET: ${WEBSITE_APT_GET_INSTALLS:-}
@@ -349,7 +363,7 @@ services:
             - "${HOST_PATH_LOGS:-./logs}/website/apache:/var/log/apache2"
             - "${HOST_PATH_LOGS:-./logs}/website/php:/var/log/php" # // ℹ️ Requires change in php.ini to work!
             - "${HOST_PATH_LOGS:-./logs}/website/sendmail:/var/log/msmtp"
-            - "${HOST_PATH_LOGS:-./logs}/website/website:${WESBITE_ROOT_DIR}/logs"
+            - "${HOST_PATH_LOGS:-./logs}/website/website:${WEBSITE_ROOT_DIR}/logs"
             # -=[ apache2 ]=-
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/website/apache/maxminddb.conf:/etc/apache2/conf-available/maxminddb.conf:ro" # :ro = read-only
             - "${HOST_PATH_WEBSITE_APACHE_CONFIG:-/dev/null}:/etc/apache2/sites-available/000-default.conf:ro"
@@ -360,9 +374,9 @@ services:
             - "${HOST_PATH_WEBSITE_ENV_FILE:-/dev/null}:/tmp/.env:ro" # :ro = read-only
             # -=[ cron ]=-
             - "${HOST_PATH_WEBSITE_CRONTAB_CONFIG:-/dev/null}:/etc/cron.d/custom"
-            - "${HOST_PATH_WEBSITE_CRON_SCRIPTS:-${HOST_DOCKER_WORKING_DIR:-.}/resources/website/cron}:${WESBITE_ROOT_DIR}/cron"
+            - "${HOST_PATH_WEBSITE_CRON_SCRIPTS:-${HOST_DOCKER_WORKING_DIR:-.}/resources/website/cron}:${WEBSITE_ROOT_DIR}/cron"
             # -=[ Website data (user-generated content) ]=-
-            - website-files:${WESBITE_ROOT_DIR}/data:rw # :rw = read+write (explicit)
+            - website-files:${WEBSITE_ROOT_DIR}/data:rw # :rw = read+write (explicit)
 
     #--------------------
     # 💽 MariaDB Database
@@ -463,22 +477,25 @@ services:
             # --- SMTP with STARTTLS (587) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.tls.passthrough=true"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.entrypoints=smtp-tcp"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.entryPoints=smtp-tcp"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.rule=HostSNI(`*`)"
             - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service.loadbalancer.server.port=587"
-            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.entrypoints=smtp-tcp}
+            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.tls.passthrough=true}
+            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.entryPoints=smtp-tcp}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.rule=HostSNI(`*`)}
+            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service}
             # --- SMTP with SSL/TLS (465) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.tls=true"
+            - ${USE_LETSENCRYPT:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.tls.passthrough=true}
             - ${USE_LETSENCRYPT:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.tls.certresolver=letsencrypt}
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.entrypoints=smtp-ssl"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.entryPoints=smtp-ssl"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.rule=HostSNI(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)"
-            - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service.loadbalancer.server.port=25"
-            #- "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service.loadbalancer.server.port=465"
+            - ${USE_LETSENCRYPT:-traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service.loadbalancer.server.port=465}
+            - ${USE_LETSENCRYPT:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service.loadbalancer.server.port=25}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.tls.passthrough=true}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-plain-service}
-            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.entrypoints=smtp-ssl}
+            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.entryPoints=smtp-ssl}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.rule=HostSNI(`*`)}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-plain-service.loadbalancer.server.port=25}
         environment:
@@ -545,23 +562,24 @@ services:
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
-            - "telegram-notifier.service-uri=${IRC_HOST:+irc://${IRC_HOST}.${DOMAINNAME}:${IRC_PORT_SSL:-6697}}"
+            - "telegram-notifier.service-uri=${IRC_HOST:+irc://${IRC_HOST}.${DOMAINNAME}:${IRC_PORT:-6667}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
             - "traefik.docker.network=${NETWORK_TCP_SERVICES:-loadbalance-tcp}"
             # --- IRC (6667/tcp) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-tcp-service"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.entrypoints=irc-tcp"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.entryPoints=irc-tcp"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.rule=HostSNI(`*`)"
             - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-tcp-service.loadbalancer.server.port=6667"
             # --- IRC with SSL/TLS (6697/tcp) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.tls=true"
+            - ${USE_LETSENCRYPT:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.tls.passthrough=true}
             - ${USE_LETSENCRYPT:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.tls.certresolver=letsencrypt}
-            - ${USE_LETSENCRYPT:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.tls.passthrough=passthrough}
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.entrypoints=irc-tcp-ssl"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.rule=HostSNI(`${IRC_HOST}`)"
-            - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service.loadbalancer.server.port=6697"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.entryPoints=irc-tcp-ssl"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.rule=HostSNI(`*`)"
+            - ${USE_LETSENCRYPT:-traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service.loadbalancer.server.port=6697}
+            - ${USE_LETSENCRYPT:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service.loadbalancer.server.port=6667}
         environment:
             - TERM=xterm
             - HOME=/home/ircd
@@ -604,6 +622,8 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=/join #quiz"
+            # -=[ traefik Reverse Proxy : routing OFF ]=-
+            - "traefik.enable=false"
         environment:
             - TZ=${TIMEZONE:-Europe/Zurich}
             - NICKSERV_PASSWORD=${IRC_QUIZBOT_PASSWORD:-false}
@@ -624,6 +644,8 @@ services:
         memswap_limit: 512mb
         security_opt:
             - "no-new-privileges:true"
+        networks:
+            - the-grid
         healthcheck:
             test: '[ ! -f /tmp/unhealthy ]'
             start_period: 60s
@@ -635,6 +657,8 @@ services:
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
+            # -=[ traefik Reverse Proxy : routing OFF ]=-
+            - "traefik.enable=false"
         environment:
             - TZ=${TIMEZONE:-Europe/Zurich}
             - STOCK_TICKERS=${STOCKTICKER_SYMBOLS:-}
@@ -650,7 +674,7 @@ services:
     # 🔑 KeePass DB
     #--------------
     sftp:
-        profiles: [ "keepass" ]
+        profiles: [ "all", "keepass" ]
         image: atmoz/sftp:alpine
         platform: linux/amd64 # ℹ️ Has no arm64 support
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}keepass
@@ -677,13 +701,13 @@ services:
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
-            - "telegram-notifier.service-uri=${KEEPASS_HOST:+sftp://${KEEPASS_HOST}.${DOMAINNAME}:${KEEPASS_PORT_SFTP:-22}}"
+            - "telegram-notifier.service-uri=${KEEPASS_HOST:+sftp://${KEEPASS_HOST}.${DOMAINNAME}:${KEEPASS_PORT_SFTP:-2222}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
             - "traefik.docker.network=${NETWORK_TCP_SERVICES:-loadbalance-tcp}"
             # --- SFTP (22/tcp) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp-service"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.entrypoints=sftp"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.entryPoints=sftp-tcp"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.rule=HostSNI(`*`)"
             - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp-service.loadbalancer.server.port=22"
         command: "${KEEPASS_SFTP_USER:-keepass}:${KEEPASS_SFTP_PASSWORD:-}:::vault"
@@ -697,7 +721,7 @@ services:
     #----------------------------
     # // TODO + Add Stats API: https://hub.docker.com/r/adobromilskiy/quake3-stats
     quake3:
-        profiles: [ "quake" ]
+        profiles: [ "all", "quake" ]
         image: jberrenberg/quake3
         platform: linux/amd64 # ℹ️ Has no arm64 support
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}quake3server
@@ -707,6 +731,8 @@ services:
         security_opt:
             - "no-new-privileges:true"
         hostname: ${QUAKE3_HOST:+${QUAKE3_HOST}.${DOMAINNAME}}
+        networks:
+            - slipgate-teleporter
         ports:
             - "${QUAKE3_PORT:-27960}:27960/udp"
         healthcheck:
@@ -744,6 +770,7 @@ services:
         restart: "no"
         security_opt:
             - "no-new-privileges:true"
+        network_mode: "none"
         environment:
             - GIT_REPO=${WEBSITE_GIT_REPO:-https://github.com/zorgch/zorg-code}
             - GIT_BRANCH=${WEBSITE_GIT_BRANCH:-main}
@@ -758,9 +785,6 @@ services:
 #  --==[ DOCKER NETWORKS ]==--
 #==============================
 networks:
-    skynet:
-        internal: true
-        driver: bridge
     intrusion-countermeasures-electronics:
         internal: true
         driver: bridge
@@ -770,9 +794,15 @@ networks:
     the-grid:
         name: ${NETWORK_HTTP_SERVICES:-loadbalance-http}
         external: ${NETWORK_HTTP_SERVICES_SHARED:-false}
+        internal: false
     information-superhighway:
         name: ${NETWORK_TCP_SERVICES:-loadbalance-tcp}
         external: ${NETWORK_TCP_SERVICES_SHARED:-false}
+        internal: false
+    slipgate-teleporter:
+        name: ${NETWORK_UDP_SERVICES:-loadbalance-udp}
+        external: ${NETWORK_UDP_SERVICES_SHARED:-false}
+        internal: false
 
 
 #================================

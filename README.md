@@ -14,7 +14,7 @@ zorg on Docker
   - [🌐 DNS-records and Hosts](#-dns-records-and-hosts)
 - [📂 Folder structure setup](#-folder-structure-setup)
 - [💾 Docker images](#-docker-images)
-  - [🧬 Docker Networks](#-docker-networks)
+- [🧬 Docker networking](#-docker-networks)
 
 [🏁 Getting started](#-getting-started)
 - [Initial setup (one time only)](#initial-setup-one-time-only)
@@ -161,9 +161,14 @@ Creat the a folder structure on your host machine that reflects the following:
     │       ├── sensitive-server.conf
     │       └── sensitive-servicelink.conf
     │
-    ├── keepass/         <-- Reference in.env. Only AFTER sftp started: put kdbx file here.
+    ├── code-docu/
+    │   ├── code/       <-- (Optional) Git clone of github.com/zorgch/zorg-code.git. Reference in .env
+    │   ├── docu/       <-- (Optional) Reference in .env
+    │   └── phpdoc.xml     <-- (Optional)
     │
-    ├──quake3-baseq3/   <-- Reference in.env.
+    ├── keepass/         <-- Reference in .env Only AFTER sftp started: put kdbx file here.
+    │
+    ├── quake3-baseq3/   <-- Reference in .env
     │   ├── q3config_server.cfg   <-- Copy & adjust "quake3/example-server.cfg" from repo
     │   ├── pak0.pk3              <-- From a local licensed Quake3 installation
     │   └── pak1-8.pk3            <-- Can be obtained at: https://ioquake3.org/extras/patch-data/
@@ -209,56 +214,69 @@ Here's an overview of the underlaying Docker images used for the Docker Services
 
 <br>
 
-#### 🧬 Docker Networks
+### 🧬 Docker Networks
+
+In order to not block Ports for other networking services on the server / in other Docker stacks, this Docker stack has support for [HTTP, TCP (dedicated), and UDP shared networks](#add-external-docker-networks) (aka External Docker Networks).
+
+These are optional, but highly recommended to use - in order to prevent future port conflicts. Here's a schematic overview of the networking capabilities added:
 
 ```mermaid
 graph TD
   %% Externe Netzwerke
   subgraph External Networks
-    lb_http[loadbalance-http]
-    lb_tcp[loadbalance-tcp]
-    lb_udp[loadbalance-udp]
+    lb_http["loadbalance-http<br>[external/shared]"]
+    lb_tcp["loadbalance-tcp<br>[external/shared]"]
+    lb_udp["loadbalance-udp<br>[external/shared]"]
   end
 
-  %% zorg Stack
-  subgraph zorg Stack
+  %% zorg Main
+  subgraph zorg Live
     zorg[zorg services]
-    thegrid["the-grid (→ loadbalance-http)"]
-    infosuper["Information-Super-Highway (→ loadbalance-tcp)"]
-    attackbarrier["attack-barrier (→ loadbalance-udp)"]
-    ice["Intrusion-Countermeasures-Electronics (internal)"]
+    grid["the-grid<br>→ loadbalance-http"]
+    superhighway["information-superhighway<br>→ loadbalance-tcp"]
+    slipgate["slipgate-teleporter<br>→ loadbalance-udp"]
+    zion["zion-mainframe<br>[internal only]"]
   end
 
-  %% Weitere Stacks
-  subgraph other-stack-1
-    stack1[stack 1 services]
+  %% zorg Construct
+  subgraph zorg Construct
+    stack1[construct services]
     stack1_http["→ loadbalance-http"]
     stack1_tcp["→ loadbalance-tcp"]
     stack1_udp["→ loadbalance-udp"]
+    internalnet["custom-net<br>[internal only]"]
   end
 
+  %% Weitere Stacks
   subgraph other-stack-2
     stack2[stack 2 services]
     stack2_http["→ loadbalance-http"]
-    stack2_tcp["→ loadbalance-tcp"]
-    stack2_udp["→ loadbalance-udp"]
+    stack2_internalnet["stack2_default<br>[internal only]"]
+  end
+
+  subgraph other-stack-3
+    stack3[stack 3 services]
+    stack3_tcp["→ loadbalance-tcp"]
+    stack3_udp["→ loadbalance-udp"]
   end
 
   %% Verbindungen zorg
-  zorg --> thegrid --> lb_http
-  zorg --> infosuper --> lb_tcp
-  zorg --> attackbarrier --> lb_udp
-  zorg --> ice
+  zorg --> grid --> lb_http
+  zorg --> superhighway --> lb_tcp
+  zorg --> slipgate --> lb_udp
+  zorg --> zion
 
   %% Verbindungen andere Stacks
   stack1 --> stack1_http --> lb_http
   stack1 --> stack1_tcp --> lb_tcp
   stack1 --> stack1_udp --> lb_udp
+  stack1 --> internalnet
 
   stack2 --> stack2_http --> lb_http
-  stack2 --> stack2_tcp --> lb_tcp
-  stack2 --> stack2_udp --> lb_udp
+  stack2 --> stack2_internalnet
 
+  stack3 --> stack3_tcp --> lb_tcp
+  stack3 --> stack3_udp --> lb_udp
 ```
 
 <br><br>
@@ -288,7 +306,7 @@ cp ./zorg-docker/.env.example ./.env
 ln -s ./zorg-docker/docker-compose.yml ./docker-compose.yml
 ```
 
-#### Add exetnal Docker networks
+#### Add external Docker networks
 
 These networks allow OTHER Docker Stacks and Services to connect to the same network.
 
@@ -403,7 +421,7 @@ docker compose --profile mailserver up -d
 </details>
 
 > [!CAUTION]
-> Do not take an individual service *down* using `--profile`, target it specifically instead!<br>`docker compose reverseproxy-waf down`
+> Do not take an individual service *down* using `--profile`, target it specifically instead!<br>`docker compose down stockticker`
 
 <br>
 
@@ -412,7 +430,7 @@ docker compose --profile mailserver up -d
 
 ```bash
 docker compose --profile keepass up -d
-docker compose sftp down
+docker compose down sftp
 ```
 
 <br>
@@ -421,8 +439,8 @@ docker compose sftp down
 <sup>*</sup> Due to a potential high load on the server, the «Quake 3 Arena» Server (`quake3`) is separated from the general services.
 
 ```bash
-docker compose --profile quake up -d
-docker compose quake3 down
+docker compose up -d quake3
+docker compose down quake3
 ```
 
 <br>
@@ -549,11 +567,10 @@ A non-conclusive, depends on what `ports:` are set in the `.env` file.
 ```bash
 sudo ufw allow 80 # webserver/reverseproxy http
 sudo ufw allow 443 # webserver/reverseproxy https
-sudo ufw allow 485/tcp # postfix-smtp Server
-sudo ufw allow 587/tcp # postfix-smtp Server (STARTTLS)
+sudo ufw allow 9443/tcp # Docker dashboard (secure)
 sudo ufw allow 6667/tcp # irc-Server
 sudo ufw allow 6697/tcp # irc-Server (secure)
-sudo ufw allow 21/tcp # ftp-Server | NOTE: 22 reserved for ssh
+sudo ufw allow 2222/tcp # ftp-Server | NOTE: 22 reserved for ssh
 sudo ufw allow 27960/udp # quake3-Server
 ```
 </details>
@@ -573,14 +590,14 @@ To                         Action      From
 587                        ALLOW       Anywhere
 6667/tcp                   ALLOW       Anywhere
 6697/tcp                   ALLOW       Anywhere
-21/tcp                     ALLOW       Anywhere
+2222/tcp                   ALLOW       Anywhere
 27960/udp                  ALLOW       Anywhere
 80 (v6)                    ALLOW       Anywhere (v6)
 443 (v6)                   ALLOW       Anywhere (v6)
 587 (v6)                   ALLOW       Anywhere (v6)
 6667/tcp (v6)              ALLOW       Anywhere (v6)
 6697/tcp (v6)              ALLOW       Anywhere (v6)
-21/tcp (v6)                ALLOW       Anywhere (v6)
+2222/tcp (v6)              ALLOW       Anywhere (v6)
 27960/udp (v6)             ALLOW       Anywhere (v6)
 ```
 </details>
