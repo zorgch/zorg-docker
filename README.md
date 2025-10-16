@@ -203,8 +203,8 @@ Here's an overview of the underlaying Docker images used for the Docker Services
 | `db`               | `mariadb`                 | [Docs](https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/) |
 | `postfix-smtp`     | `mailserver/docker-mailserver` | [Docs](https://docker-mailserver.github.io/docker-mailserver/) |
 | `irc`              | `c0dy/unrealircd-anope`   | [Docker Hub](https://hub.docker.com/r/c0dy/unrealircd-anope) |
-| `irc-quizbot`      | `python:2.7-slim`         | [GitHub](https://github.com/zorgch/irc-quizbot) |
-| `stockticker`      | `python:3.9-slim`         | [GitHub](https://github.com/zorgch/zorg-docker/tree/dev/resources/python/stockticker) |
+| `irc-quizbot`      | `python:3.12-slim`        | [GitHub](https://github.com/zorgch/irc-quizbot) |
+| `stockticker`      | `python:3.12-slim`        | [GitHub](https://github.com/zorgch/zorg-docker/tree/dev/resources/python/stockticker) |
 | `servicealerts`    | `lorcas/docker-telegram-notifier` | [GitHub](https://github.com/luc-ass/docker-telegram-notifier) |
 | `sftp`             | `atmoz/sftp`              | [Docker Hub](https://hub.docker.com/r/atmoz/sftp/) |
 | `quake3`           | `jberrenberg/quake3`      | [GitHub](https://github.com/jberrenberg/docker-quake3/tree/master/quake3) |

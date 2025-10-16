@@ -130,7 +130,7 @@ services:
     # 🚦 Reverse Proxy and TLS/SSL
     #-----------------------------
     reverseproxy:
-        profiles: [ "all", "status", "webserver", "mailserver" ]
+        profiles: [ "all", "status", "webserver", "mailserver", "irc" ]
         image: traefik
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}reverseproxy
@@ -603,8 +603,8 @@ services:
     # --- 🧩 Quizbot for IRC ---
     irc-quizbot:
         profiles: [ "all", "irc" ]
-        image: python:2.7-slim
-        platform: linux/amd64 # ℹ️ Has no arm64 support (py2.7)
+        image: python:3.12-slim
+        platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}ircquizbot
         restart: on-failure:5
         depends_on:
@@ -627,6 +627,8 @@ services:
         environment:
             - TZ=${TIMEZONE:-Europe/Zurich}
             - NICKSERV_PASSWORD=${IRC_QUIZBOT_PASSWORD:-false}
+            - BOSTMASTERS=${IRC_QUIZBOT_ADMINS:-nickname,barbara}
+            - VERBOSE=${IRC_QUIZBOT_DEBUG:-false}
         entrypoint: ["/bin/bash", "/usr/local/bin/setup.sh"]
         volumes:
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/python/irc-quizbot/service-setup.sh:/usr/local/bin/setup.sh"
@@ -635,7 +637,7 @@ services:
     # --- 📈 Stockticker ---
     stockticker:
         profiles: [ "all" ]
-        image: python:3.9-slim
+        image: python:3.12-slim
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}stockticker
         restart: on-failure:1
