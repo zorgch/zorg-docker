@@ -33,3 +33,4 @@ acme.json
 !LICENSE
 !README.md
 !/resources
+__pycache__/
