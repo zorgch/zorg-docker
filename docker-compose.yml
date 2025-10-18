@@ -421,7 +421,7 @@ services:
         environment:
             # 📖 HOWTO https://github.com/wodby/adminer?tab=readme-ov-file#readme
             - TZ=${TIMEZONE:-Europe/Zurich}
-            - ADMINER_DEFAULT_DB_DRIVER=server
+            - ADMINER_DEFAULT_DB_DRIVER=mysql
             - ADMINER_DEFAULT_DB_HOST=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mariadb
             - ADMINER_DEFAULT_DB_NAME=${DATABASE_NAME:-}
             - ADMINER_DESIGN=${DBMANAGER_DESIGN:-pappu687}
