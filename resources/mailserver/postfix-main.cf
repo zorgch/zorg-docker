@@ -1,18 +1,46 @@
+#                                                               ██████   ██████   ██████ ██   ██ ███████ ██████
+#   ███████  ██████  ████    ██████       ██████  ████   ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
+#      ███  ██    ██ ██  ██ ██           ██    ██ ██ ██  ██     ██   ██ ██    ██ ██      █████   █████   ██████
+#    ███    ██    ██ ██     ██   ███     ██    ██ ██  ██ ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
+#   ███████  ██████  ██      ██████       ██████  ██   ████     ██████   ██████   ██████ ██   ██ ███████ ██   ██
+# Portable, Server independent, Docker-based code to get the zorg Websites and Services up, running, and hosted.
+# Copyright (C) 2024  zorg Verein <https://github.com/zorgch>
+#
+#   This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+#
+#   This program comes with ABSOLUTELY NO WARRANTY; for details read the README.
+# This is free software, and you are welcome to redistribute it
+# under certain conditions; see the LICENSE.
+
 # Overwrites the default docker-mailserver postfix `main.cf` settings
 # - Docu: https://docker-mailserver.github.io/docker-mailserver/latest/config/advanced/override-defaults/postfix/
 
-# Fix for error: "postfix/smtp[839]: fatal: valid hostname or network address required in server description: # "
-relayhost =
-
-# Ensure the Docker Gatway IP(-range) is in the allowed ranges
-# Reason: Host OS sent the mail via Docker’s gateway, not directly from localhost
-# - Docker Gateway IPv4 range: 172.19.0.0/16
+# Ensure the Docker Gateway IP(-range) is in the allowed ranges
+# Reason: Host OS sent the mail via Docker's gateway, not directly from localhost
+# - Docker Gateway IPv4 range: 172.19.0.0/16 (common Docker bridge network)
 # - Docker Gateway IPv4 specific: 172.19.0.1
-# - Docker Gateway IPv6 specific: 2a01:4f8:c17:a056::1
-mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 172.19.0.0/16 172.19.0.1 2a01:4f8:c17:a056::1
+# - Additional Docker networks: 172.17.0.0/16, 172.18.0.0/16, 192.168.0.0/16
+# Note: IPv6 addresses removed due to POSTFIX_INET_PROTOCOLS=ipv4 setting
+mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 172.17.0.0/16 172.18.0.0/16 172.19.0.0/16 192.168.0.0/16
 
 # Relax the delivery restrictions, particulalry for internal SMTP_ONLY mode
 # - IMPORTANT: ORDER MATTERS! So keep `permit_mynetworks` always FIRST!
 # - NOTE: when testing, particularly with non-registered DNS (e.g. zdocker.dev), then REMOVE the option: reject_unauth_destination
 smtpd_recipient_restrictions = permit_mynetworks, reject_unauth_destination
 smtpd_client_restrictions = permit_mynetworks, reject_unauth_destination
+
+# Configure relay host for external email delivery
+# See https://docker-mailserver.github.io/docker-mailserver/latest/config/advanced/mail-forwarding/relay-hosts/#technical-details
+relayhost =
+smtp_tls_wrappermode = yes

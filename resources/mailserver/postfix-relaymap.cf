@@ -1,0 +1,6 @@
+# See https://github.com/docker-mailserver/docker-mailserver/blob/74bd305690918888e24bbf50d1f58512a9b70d07/docs/content/config/advanced/mail-forwarding/relay-hosts.md
+#@domain1.com        [smtp.mailgun.org]:465
+#@domain2.com        [smtp.sendgrid.net]:2525
+
+# Opt-out of relaying:
+#@domain3.com
