@@ -25,11 +25,11 @@ zorg on Docker
   - [Single «KeePass SFTP» service](#run-the-keepass-sftp-service-separately)
   - [Single «Quake 3 Arena Server»](#run-the-quake-3-arena-server-separately)
   - [Single «phpDocumentor» service](#run-the-phpdocumentor-service-separately)
-  - [🏷️ Docker services -> profiles mapping](#-docker-services---profiles-mapping)
+- [🏷️ Docker services -> profiles mapping](#%EF%B8%8F-docker-services---profiles-mapping)
 - [🩺 Resource usage & services health](#docker-resource-usage---services-health)
 - [🆙 Update all Docker images](#-update-all-docker-images)
 
-[👨‍🏫 Explanations](#-explanations)
+[👨‍🏫 Explanations](#%E2%80%8D-explanations)
 - [🧪 Debugging Docker Services](#-debugging-docker-services)
 - [🔥 Firewall ports configuration](#-firewall-ports-configuration)
 - [📄 The `/zorg-docker/resources`-directory & files](#-the-zorg-dockerresources-directory--files)
@@ -119,7 +119,7 @@ Creat the a folder structure on your host machine that reflects the following:
     ├── docker-compose.yml <-- Symbolic-linked ./zorg-docker/docker-compose.yml
     ├── docker-update.sh   <-- Symbolic-linked ./zorg-docker/docker-update.sh
     │
-    ├── reverseproxy/      <-- (Optional) To further customize OWASP WAF rules. Reference in .env
+    ├── reverseproxy/      <-- (Optional) To further customize OWASP WAF rules or IP-Whitelist. Ref in .env
     │   └── owasp-coraza-waf.yaml
     |
     ├── website/           <-- zorg Website configs & data
@@ -130,7 +130,6 @@ Creat the a folder structure on your host machine that reflects the following:
     │   │   ├── gallery/
     │   │   ├── tauschboerse/
     │   │   └── ...
-    │   │
     │   ├── cronjobs/
     │   │   └── cronjobs.crontab   <-- Copy & adjust "website/php/example.crontab" from repo
     │   └── sendmail/

@@ -91,6 +91,7 @@ services:
         mem_limit: "${REVERSEPROXY_MEMORY:-512m}"
         security_opt:
             - "no-new-privileges:true"
+        hostname: ${DASHBOARD_HOST:+${DASHBOARD_HOST}.${DOMAINNAME}}
         networks:
             - the-grid
         expose:
@@ -111,7 +112,7 @@ services:
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-http-service"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.entryPoints=websecure"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.rule=Host(`${DASHBOARD_HOST}.${DOMAINNAME}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.middlewares=ip-whitelist@docker,compress-gzip"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.middlewares=ip-whitelist@file,compress-gzip@file"
             - "traefik.http.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-http-service.loadbalancer.server.port=9000"
         command: >
             --tlscert /certs/live/${DOMAINNAME}/fullchain.cert
@@ -158,22 +159,17 @@ services:
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             # -=[ traefik Reverse Proxy : routing CONDITIONAL ]=-
             - "traefik.enable=${REVERSEPROXY_DASHBOARD:-false}"
+            # --- traefik Dashboard: /dashboard CONDITIONAL ---
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.tls=true}
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.service=api@internal} # Exposes :8080/tcp
-            - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.middlewares=ip-whitelist@docker}
+            - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.middlewares=ip-whitelist@file}
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.entryPoints=websecure}
-            # --- traefik Middleware: ipAllowList ---
-            # 📖 HOWTO https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/ipallowlist/
-            - "traefik.http.middlewares.ip-whitelist.ipallowlist.sourcerange=${REVERSEPROXY_IP_ALLOWLIST:-127.0.0.1/32,::1/128}"
-            # --- traefik Middleware: http-requests handling ---
-            - "traefik.http.middlewares.compress-gzip.compress=true"
-            - "traefik.http.middlewares.contenttype-add.contenttype=true"
             # --- Global redirect to HTTPS ---
+            - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+            - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.rule=HostRegexp(`{host:.+}`)"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.entryPoints=web"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.middlewares=redirect-to-https"
-            - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-            - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
         command:
             - --global.sendAnonymousUsage=false
             - --api.dashboard=${REVERSEPROXY_DASHBOARD:-false}
@@ -232,6 +228,7 @@ services:
         mem_limit: "${WEBSITE_MEMORY:-2048m}"
         security_opt:
             - "no-new-privileges:true"
+        hostname: ${DOMAINNAME}
         networks:
             - the-grid
             - information-superhighway
@@ -267,7 +264,7 @@ services:
             - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.tls.certresolver=letsencrypt}
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.entryPoints=websecure"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.rule=Host(`${DOMAINNAME:-website}`) || Host(`www.${DOMAINNAME:-website}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=strip-www,owasp-coraza-waf@file,contenttype-add,compress-gzip"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=strip-www,owasp-coraza-waf@file,contenttype-add@file,securityheaders-add@file,compress-gzip@file"
             # --- Configure Redirect for Secondary Domainname ---
             - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls=true}
             - ${SECONDARY_DOMAINNAME:+${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls.certresolver=letsencrypt}}
@@ -394,6 +391,8 @@ services:
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer
         restart: on-failure:1
+        depends_on:
+            - db
         cpus: "${REVERSEPROXY_CPU:-0.5}"
         mem_limit: "${REVERSEPROXY_MEMORY:-512m}"
         #security_opt: # ⚠️ Do NOT limit for adminer to work!
@@ -417,7 +416,7 @@ services:
             - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.tls.certresolver=letsencrypt}
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.entrypoints=websecure"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.rule=Host(`${DBMANAGER_HOST}.${DOMAINNAME}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.middlewares=ip-whitelist@docker,compress-gzip"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.middlewares=ip-whitelist@file,securityheaders-add@file,compress-gzip@file"
         environment:
             # 📖 HOWTO https://github.com/wodby/adminer?tab=readme-ov-file#readme
             - TZ=${TIMEZONE:-Europe/Zurich}
