@@ -26,13 +26,6 @@
 # Overwrites the default docker-mailserver postfix `main.cf` settings
 # - Docu: https://docker-mailserver.github.io/docker-mailserver/latest/config/advanced/override-defaults/postfix/
 
-# Configure relay host for external email delivery
-# Fix for error: "postfix/smtp[839]: fatal: valid hostname or network address required in server description: # "
-relayhost =
-smtp_sasl_auth_enable = yes
-smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
-smtp_sasl_security_options = noanonymous
-
 # Ensure the Docker Gateway IP(-range) is in the allowed ranges
 # Reason: Host OS sent the mail via Docker's gateway, not directly from localhost
 # - Docker Gateway IPv4 range: 172.19.0.0/16 (common Docker bridge network)
@@ -46,3 +39,8 @@ mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 172.17.0.0/16 172.18.0
 # - NOTE: when testing, particularly with non-registered DNS (e.g. zdocker.dev), then REMOVE the option: reject_unauth_destination
 smtpd_recipient_restrictions = permit_mynetworks, reject_unauth_destination
 smtpd_client_restrictions = permit_mynetworks, reject_unauth_destination
+
+# Configure relay host for external email delivery
+# See https://docker-mailserver.github.io/docker-mailserver/latest/config/advanced/mail-forwarding/relay-hosts/#technical-details
+relayhost =
+smtp_tls_wrappermode = yes
