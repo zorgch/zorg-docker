@@ -119,7 +119,7 @@ Creat the a folder structure on your host machine that reflects the following:
     ├── docker-compose.yml <-- Symbolic-linked ./zorg-docker/docker-compose.yml
     ├── docker-update.sh   <-- Symbolic-linked ./zorg-docker/docker-update.sh
     │
-    ├── reverseproxy/      <-- (Optional) To further customize OWASP CSP Rules. Reference in .env
+    ├── reverseproxy/      <-- (Optional) To further customize OWASP WAF rules. Reference in .env
     │   └── owasp-coraza-waf.yaml
     |
     ├── website/           <-- zorg Website configs & data
@@ -179,6 +179,7 @@ Creat the a folder structure on your host machine that reflects the following:
         │   ├── apache/
         │   ├── php/
         │   └── website/
+        ├── reverseproxy-owasp/
         ├── sftp/
         └── quake3-server/
 ```

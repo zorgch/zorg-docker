@@ -217,7 +217,9 @@ services:
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - sslcerts-files:/certs:rw # :rw = read+write (explicit)
-            - "${HOST_PATH_REVERSEPROXY_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/reverseproxy}:/config" # :ro = read-only
+            - "${HOST_PATH_REVERSEPROXY_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/reverseproxy}:/config:ro" # :ro = read-only
+            # -=[ Logs ]=-
+            - "${HOST_PATH_LOGS:-./logs}/reverseproxy-owasp:/var/lib/coraza"
 
     #----------------------
     # 🌐 Apache-PHP Website
@@ -267,7 +269,7 @@ services:
             - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.tls.certresolver=letsencrypt}
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.entryPoints=websecure"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.rule=Host(`${DOMAINNAME:-website}`) || Host(`www.${DOMAINNAME:-website}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=strip-www,owaspmodsec@docker,contenttype-add,compress-gzip"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=strip-www,owasp-coraza-waf@file,contenttype-add,compress-gzip"
             # --- Configure Redirect for Secondary Domainname ---
             - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls=true}
             - ${SECONDARY_DOMAINNAME:+${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls.certresolver=letsencrypt}}
@@ -617,7 +619,7 @@ services:
         environment:
             - TZ=${TIMEZONE:-Europe/Zurich}
             - NICKSERV_PASSWORD=${IRC_QUIZBOT_PASSWORD:-false}
-            - BOSTMASTERS=${IRC_QUIZBOT_ADMINS:-nickname,barbara}
+            - BOTMASTERS=${IRC_QUIZBOT_ADMINS:-nickname,barbara}
             - VERBOSE=${IRC_QUIZBOT_DEBUG:-false}
         entrypoint: ["/bin/bash", "/usr/local/bin/setup.sh"]
         volumes:
