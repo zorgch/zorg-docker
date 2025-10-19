@@ -172,14 +172,15 @@ Creat the a folder structure on your host machine that reflects the following:
     │   └── pak1-8.pk3            <-- Can be obtained at: https://ioquake3.org/extras/patch-data/
     │
     └── logs/              <-- Reference in .env
-        ├── cron/          <-- Sub-directories MUST also be created manually!
-        ├── ircserver/
-        ├── mailserver/
-        ├── website/
+        ├── website/       <-- Sub-directories MUST also be created manually!
         │   ├── apache/
         │   ├── php/
+        │   ├── sendmail/
         │   └── website/
         ├── reverseproxy-owasp/
+        ├── mariadb/
+        ├── mailserver-smtp/
+        ├── ircserver/
         ├── sftp/
         └── quake3-server/
 ```

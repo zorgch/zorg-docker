@@ -194,13 +194,6 @@ services:
             - --entryPoints.websecure.address=:443/tcp
             - --entryPoints.websecure.http.tls=true
             - --entrypoints.websecure.http.maxheaderbytes=5120
-            # --- Dashboard (Portainer)
-            - --entryPoints.web-portainer.address=:9000/tcp
-            - --entryPoints.web-portainer.http.redirections.entryPoint.to=websecure-portainer
-            - --entryPoints.web-portainer.http.redirections.entryPoint.scheme=https
-            - --entryPoints.web-portainer.http.redirections.entryPoint.permanent=true
-            - --entryPoints.websecure-portainer.address=:9443/tcp
-            - --entryPoints.websecure-portainer.http.tls=true
             # -=[ Website ]=-
             - --entryPoints.php-xdebug.address=:9003/tcp
             # -=[ Mail Server ]=-
@@ -214,6 +207,11 @@ services:
             # -=[ WAF Plugin (Coraza) ]=-
             - --experimental.plugins.coraza.moduleName=github.com/jcchavezs/coraza-http-wasm-traefik
             - --experimental.plugins.coraza.version=v0.3.0
+            # -=[ Let's Encrypt configuration ]=-
+            - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL:-hostmaster@${DOMAINNAME}}}
+            - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.storage=/certs/acme.json}
+            - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.caserver=${LETSENCRYPT_CASERVER:-https://acme-v02.api.letsencrypt.org/directory}}
+            - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web}
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - sslcerts-files:/certs:rw # :rw = read+write (explicit)
