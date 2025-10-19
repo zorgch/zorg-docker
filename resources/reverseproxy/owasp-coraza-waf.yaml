@@ -4,7 +4,7 @@
 #    ███    ██    ██ ██     ██   ███     ██    ██ ██  ██ ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
 #   ███████  ██████  ██      ██████       ██████  ██   ████     ██████   ██████   ██████ ██   ██ ███████ ██   ██
 # Portable, Server independent, Docker-based code to get the zorg Websites and Services up, running, and hosted.
-# Copyright (C) 2024  zorg Verein <https://github.com/zorgch>
+# Copyright (C) 2025  zorg Verein <https://github.com/zorgch>
 #
 #   This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@
 # This is free software, and you are welcome to redistribute it
 # under certain conditions; see the LICENSE.
 
-# OWASP Coraza WAF - traefik Pluin : Configuration File
+# OWASP Coraza WAF - traefik Plugin : Configuration File
 # This file contains all WAF rules and can be customized without touching docker-compose.yml
 # - Documentation: https://github.com/corazawaf/coraza/blob/main/coraza.conf-recommended
 
@@ -33,23 +33,43 @@ http:
       plugin:
         coraza:
           directives:
-            # Basic WAF Configuration (but turn OFF response body scanning)
+            # Basic WAF Configuration
+            # -- Persistent Data Storage
+            - SecDataDir /var/lib/coraza/
+            # -- Audit Logging Configuration
+            - SecAuditEngine RelevantOnly
+            - SecAuditLogRelevantStatus "^(?:(5|4)(0|1)[0-9])$"
+            - SecAuditLogParts ABIJDEFHZ
+            - SecAuditLogType Serial
+            - SecAuditLogFormat JSON
             - SecRuleEngine On
+            # -- Request Body rules: Size Limits (DoS Protection) | Max 12.5 MB & 128 KB buffer
             - SecRequestBodyAccess On
-            - SecResponseBodyAccess Off
-            - SecResponseBodyMimeType text/plain text/html text/xml
+            - SecRequestBodyLimit 13107200
+            - SecRequestBodyInMemoryLimit 131072
+            - SecRequestBodyLimitAction ProcessPartial
+            # -- Response Body rules (OFF --> has impact on latency & memory)
+            #- SecResponseBodyAccess Off
+            #- SecResponseBodyMimeType text/plain text/html text/xml
+            #- SecResponseBodyLimit 524288
+            #- SecResponseBodyLimitAction ProcessPartial
 
             # Security Rules
-            - SecRule ARGS "@contains <script" "id:102,phase:2,log,deny,status:403,msg:'XSS attempt detected'"
-            - SecRule ARGS "@contains union select" "id:103,phase:2,log,deny,status:403,msg:'SQL injection attempt detected'"
-            # -- Don’t inspect bodies for GET/HEAD
-            #- SecRule REQUEST_METHOD "@rx ^(?:GET|HEAD)$" "id:900100,phase:1,pass,ctl:requestBodyAccess=Off,nolog"
+            # -- Prevent URL SQL-Injections and XSS Requests
+            - SecRule MULTIPART_STRICT_ERROR "!@eq 0" "id:200003,phase:2,t:none,log,deny,status:400,msg:'Multipart request body failed strict validation.'"
+            - SecRule ARGS "@contains <script" "id:102,phase:2,t:lowercase,log,deny,status:403,msg:'XSS attempt detected'"
+            - SecRule ARGS "@pm union select delete from drop table insert into" "id:103,phase:2,t:lowercase,log,deny,status:403,msg:'SQL injection attempt detected'"
+            # -- Request Body Parsers (API Security)
+            - SecRule REQUEST_HEADERS:Content-Type "^(?:application(?:/soap\+|/)|text/)xml" "id:200000,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=XML"
+            - SecRule REQUEST_HEADERS:Content-Type "^application/json" "id:200001,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=JSON"
+            - SecRule REQUEST_HEADERS:Content-Type "^application/[a-z0-9.-]+[+]json" "id:200006,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=JSON"
+            # -- Request Body Error Handling
+            - SecRule REQBODY_ERROR "!@eq 0" "id:200002,phase:2,t:none,log,deny,status:400,msg:'Failed to parse request body.',logdata:'%{reqbody_error_msg}',severity:2"
 
             # Whitelist Rules
-            - SecRule REQUEST_URI "@rx \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$" "id:104,phase:1,pass,msg:'Allow static assets'"
-            # -- Allow POST requests with any body content (prevents breaking login/session endpoints)
-            - SecRule REQUEST_METHOD "@streq POST" "id:900140,phase:1,pass,nolog,ctl:requestBodyAccess=Off"
-            # -- Allow any incoming cookies (any name/value)
+            - SecRule REQUEST_URI "@rx \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$" "id:104,phase:1,pass,nolog"
+            # -- Restrict file types to specific locations only
+            #- SecRule REQUEST_URI "@rx ^/(assets|static|images|css|js|fonts)/.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$" "id:104,phase:1,pass,nolog,msg:'Allow static assets'"
+            # -- Allow any incoming cookies (any name/value) & Allow any Set-Cookie on http responses
             - SecRule REQUEST_COOKIES|REQUEST_COOKIES_NAMES "." "id:901100,phase:1,pass,nolog"
-            # -- Allow any Set-Cookie on http responses
             - SecRule RESPONSE_HEADERS:Set-Cookie "." "id:901101,phase:3,pass,nolog"
