@@ -615,7 +615,7 @@ services:
         environment:
             - TZ=${TIMEZONE:-Europe/Zurich}
             - NICKSERV_PASSWORD=${IRC_QUIZBOT_PASSWORD:-false}
-            - BOSTMASTERS=${IRC_QUIZBOT_ADMINS:-nickname,barbara}
+            - BOTMASTERS=${IRC_QUIZBOT_ADMINS:-nickname,barbara}
             - VERBOSE=${IRC_QUIZBOT_DEBUG:-false}
         entrypoint: ["/bin/bash", "/usr/local/bin/setup.sh"]
         volumes:
