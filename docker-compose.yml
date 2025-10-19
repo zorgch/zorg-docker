@@ -158,7 +158,10 @@ services:
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             # -=[ traefik Reverse Proxy : routing CONDITIONAL ]=-
             - "traefik.enable=${REVERSEPROXY_DASHBOARD:-false}"
-            - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.service=api@internal}
+            - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.tls=true}
+            - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.service=api@internal} # Exposes :8080/tcp
+            - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.middlewares=ip-whitelist@docker}
+            - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.entryPoints=websecure}
             # --- traefik Middleware: ipAllowList ---
             # 📖 HOWTO https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/ipallowlist/
             - "traefik.http.middlewares.ip-whitelist.ipallowlist.sourcerange=${REVERSEPROXY_IP_ALLOWLIST:-127.0.0.1/32,::1/128}"
@@ -182,14 +185,22 @@ services:
             - --providers.file.watch=true
             - --serversTransport.insecureSkipVerify=true
             # -=[ HTTP Services ]=-
+            # --- Default HTTP
             - --entryPoints.web.address=:80/tcp
-            - --entrypoints.web.http.maxheaderbytes=5120
             - --entryPoints.web.http.redirections.entryPoint.to=websecure
             - --entryPoints.web.http.redirections.entryPoint.scheme=https
             - --entryPoints.web.http.redirections.entryPoint.permanent=true
+            # --- Default HTTPS
             - --entryPoints.websecure.address=:443/tcp
             - --entryPoints.websecure.http.tls=true
             - --entrypoints.websecure.http.maxheaderbytes=5120
+            # --- Dashboard (Portainer)
+            - --entryPoints.web-portainer.address=:9000/tcp
+            - --entryPoints.web-portainer.http.redirections.entryPoint.to=websecure-portainer
+            - --entryPoints.web-portainer.http.redirections.entryPoint.scheme=https
+            - --entryPoints.web-portainer.http.redirections.entryPoint.permanent=true
+            - --entryPoints.websecure-portainer.address=:9443/tcp
+            - --entryPoints.websecure-portainer.http.tls=true
             # -=[ Website ]=-
             - --entryPoints.php-xdebug.address=:9003/tcp
             # -=[ Mail Server ]=-
@@ -331,7 +342,6 @@ services:
         mem_limit: "${MARIADB_MEMORY:-2560m}"
         security_opt:
             - "no-new-privileges:true"
-        hostname: ${MARIADB_HOST:+${MARIADB_HOST}.${DOMAINNAME}}
         networks:
             - zion-mainframe
         expose:
@@ -376,6 +386,48 @@ services:
             - sslcerts-files:/certs:ro # :ro = read-only
             - database-files:/var/lib/mysql
             - "${HOST_PATH_LOGS:-./logs}/mariadb:/var/log/mariadb"
+
+    #-------------------
+    # 👨‍💻 DB Manager UI
+    #-------------------
+    db-manager:
+        profiles: [ "all", "webserver" ]
+        image: wodby/adminer:${DBMANAGER_VERSION:-latest}
+        platform: ${OS_PLATFORM:-linux/amd64}
+        container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer
+        restart: on-failure:1
+        cpus: "${REVERSEPROXY_CPU:-0.5}"
+        mem_limit: "${REVERSEPROXY_MEMORY:-512m}"
+        #security_opt: # ⚠️ Do NOT limit for adminer to work!
+        hostname: ${DBMANAGER_HOST:+${DBMANAGER_HOST}.${DOMAINNAME}}
+        networks:
+            - zion-mainframe
+            - the-grid
+        expose:
+             - "8080/tcp"
+        labels:
+            # -=[ Servicealerting ]=-
+            - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
+            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
+            - "telegram-notifier.service-uri=${DBMANAGER_HOST:+https://${DBMANAGER_HOST}.${DOMAINNAME}}"
+            # -=[ traefik Reverse Proxy : routing ON ]=-
+            - "traefik.enable=true"
+            - "traefik.docker.network=${NETWORK_HTTP_SERVICES:-loadbalance-http}"
+            # --- HTTP with SSL/TLS (:443) ---
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.tls=true"
+            - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.tls.certresolver=letsencrypt}
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.entrypoints=websecure"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.rule=Host(`${DBMANAGER_HOST}.${DOMAINNAME}`)"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.middlewares=ip-whitelist@docker,compress-gzip"
+        environment:
+            # 📖 HOWTO https://github.com/wodby/adminer?tab=readme-ov-file#readme
+            - TZ=${TIMEZONE:-Europe/Zurich}
+            - ADMINER_DEFAULT_DB_DRIVER=mysql
+            - ADMINER_DEFAULT_DB_HOST=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mariadb
+            - ADMINER_DEFAULT_DB_NAME=${DATABASE_NAME:-}
+            - ADMINER_DESIGN=${DBMANAGER_DESIGN:-pappu687}
+            - ADMINER_PLUGINS=${DBMANAGER_PLUGINS:-}
 
     #--------------------------------------------------
     # 📧 Mail Server (outgoing SMTP only, for sendmail)
