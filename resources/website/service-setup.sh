@@ -154,8 +154,8 @@ find ${APACHE_PHP_ROOT:-/var/www} -type f -exec chmod 644 {} \; # (644 = -rw-r--
 ########## Start the cron service & keep service running ##########
 if [ -f /etc/cron.d/custom ]; then
     # Test if crontab -p is supported; otherwise use fallback
-    if crontab -p /etc/cron.d/custom >/dev/null 2>&1; then
-        :
+    if crontab -p /dev/null >/dev/null 2>&1; then
+        crontab -p /etc/cron.d/custom >/dev/null 2>&1 || true
     else
         crontab /etc/cron.d/custom >/dev/null 2>&1 || true
     fi
