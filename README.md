@@ -119,11 +119,9 @@ Creat the a folder structure on your host machine that reflects the following:
     ├── docker-compose.yml <-- Symbolic-linked ./zorg-docker/docker-compose.yml
     ├── docker-update.sh   <-- Symbolic-linked ./zorg-docker/docker-update.sh
     │
-    ├── code-docu/
-    │   ├── code/       <-- (Optional) Git clone of github.com/zorgch/zorg-code.git. Reference in .env
-    │   ├── docu/       <-- (Optional) Reference in .env
-    │   └── phpdoc.xml     <-- (Optional)
-    │
+    ├── reverseproxy/      <-- (Optional) To further customize OWASP WAF rules. Reference in .env
+    │   └── owasp-coraza-waf.yaml
+    |
     ├── website/           <-- zorg Website configs & data
     │   ├── .env           <-- .env file for Website
     │   ├── apache.conf      <-- Copy & adjust "website/apache/example.conf" from repo
@@ -181,6 +179,7 @@ Creat the a folder structure on your host machine that reflects the following:
         │   ├── apache/
         │   ├── php/
         │   └── website/
+        ├── reverseproxy-owasp/
         ├── sftp/
         └── quake3-server/
 ```
@@ -197,8 +196,7 @@ Here's an overview of the underlaying Docker images used for the Docker Services
 | ------------------ | ------------------------- | ------------------ |
 | `sslcerts`         | `alpine/mkcert`           | [GitHub](https://github.com/alpine-docker/multi-arch-docker-images/tree/master/mkcert) |
 | `dashboard`        | `portainer/portainer-ce`  | [Docs](https://docs.portainer.io/start/install-ce/server/docker) |
-| `reverseproxy`     | `traefik`                 | [Docs](https://doc.traefik.io/traefik/) |
-| `reverseproxy-waf` | `owasp/modsecurity-crs`   | [GitHub](https://github.com/coreruleset/modsecurity-crs-docker) |
+| `reverseproxy`<br>+ `owasp-coraza-waf@file` | `traefik`<br>`coraza-http-wasm-traefik` | [Docs](https://doc.traefik.io/traefik/)<br>[GitHub](https://github.com/jcchavezs/coraza-http-wasm-traefik) |
 | `website`          | `php`                     | [Docker Hub](https://hub.docker.com/_/php) |
 | `db`               | `mariadb`                 | [Docs](https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/) |
 | `postfix-smtp`     | `mailserver/docker-mailserver` | [Docs](https://docker-mailserver.github.io/docker-mailserver/) |
@@ -390,7 +388,7 @@ git pull --rebase
 docker compose --profile all up -d
 ```
 
-* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `reverseproxy-waf`, `website`, `db`, `postfix-smtp`, `irc`, `irc-quizbot`, `stockticker`
+* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `website`, `db`, `postfix-smtp`, `irc`, `irc-quizbot`, `stockticker`, `sftp`, `quake3`
 </details>
 
 <details>
@@ -399,7 +397,7 @@ docker compose --profile all up -d
 ```bash
 docker compose --profile webserver up -d
 ```
-* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `reverseproxy-waf`, `website`, `db`, `postfix-smtp`
+* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `website`, `db`, `postfix-smtp`
 </details>
 
 <details>
@@ -462,20 +460,20 @@ The `docker-compose.yml` file uses Docker Service-profiles to group services int
 Some single services have their own profile, in order to prevent them from starting/stopping when using `docker compose` without any `--profile`.
 
 > [!TIP]
-> Multiple profiles can be combined: `docker compose --profile webserver --profile irc up`
+> Multiple profiles can be combined: `docker compose --profile webserver --profile irc up -d`
 
-| Profile        | Applicablae Docker Services   | Example Usage                      |
-| -------------- | ----------------------------- | ---------------------------------- |
-| `all`          | All general services          | `--profile all`                    |
-| `setup`        | `sslcerts` `postfix-smtp`     | `--profile setup`                  |
-| `status`       | `servicealerts` `dashboard` `reverseproxy`    | `--profile status` |
-| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `reverseproxy-waf` `website` `db` `postfix-smtp` | `--profile webserver` |
+| Profile        | Applicablae Docker Services   | Example Usage                         |
+| -------------- | ----------------------------- | ------------------------------------- |
+| `all`          | All general services          | `--profile all`                       |
+| `setup`        | `sslcerts` `postfix-smtp`     | `--profile setup`                     |
+| `status`       | `servicealerts` `dashboard` `reverseproxy`      | `--profile status`  |
+| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `website` `db` `postfix-smtp` | `--profile webserver` |
 | `mailserver`   | `servicealerts` `dashboard` `reverseproxy` `postfix-smtp` | `--profile mailserver` |
-| `irc`          | `servicealerts` `dashboard` `irc` `irc-quizbot`           | `--profile irc`        |
-| `keepass`      | `servicealerts` `dashboard` `sftp`                        | `--profile keepass`    |
-| `quake`        | `servicealerts` `dashboard` `quake3`                      | `--profile quake`      |
-| `docu`         | `phpdoc`                      | `--profile docu`                   |
-| Single service | e.g. `stockticker`            | `docker compose up -d stockticker` |
+| `irc`          | `servicealerts` `dashboard` `irc` `irc-quizbot` | `--profile irc`     |
+| `keepass`      | `servicealerts` `dashboard` `sftp`              | `--profile keepass` |
+| `quake`        | `servicealerts` `dashboard` `quake3`            | `--profile quake`   |
+| `docu`         | `phpdoc`                      | `--profile docu`                      |
+| Single service | e.g. `stockticker`            | `docker compose up -d stockticker`    |
 
 <br>
 
@@ -499,7 +497,7 @@ docker stats --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}
 
 NAME                   CPU %     MEM USAGE / LIMIT     MEM %
 zorg-reverseproxy      0.00%     69.01MiB / 1GiB       6.74%
-zorg-reverseproxy-waf  0.03%     70.19MiB / 1GiB       6.85%
+zorg-stockticker       0.03%     70.19MiB / 1GiB       6.85%
 zorg-mariadb           0.01%     133.8MiB / 4GiB       3.27%
 zorg-website           0.01%     8.855MiB / 4GiB       0.22%
 zorg-dashboard         0.00%     27.06MiB / 1GiB       2.64%
