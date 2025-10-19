@@ -179,7 +179,7 @@ Creat the a folder structure on your host machine that reflects the following:
         ├── reverseproxy-owasp/
         ├── mariadb/
         ├── mailserver-smtp/
-        ├── ircserver/
+        ├── irc-server/           <-- ! Requires: sudo chown -R 1000:1000
         ├── sftp/
         └── quake3-server/
 ```

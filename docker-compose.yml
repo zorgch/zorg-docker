@@ -579,7 +579,10 @@ services:
         volumes:
             - sslcerts-files:/home/certs:ro # :ro = read-only
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/irc/service-setup.sh:/usr/local/bin/setup.sh"
-            - "${HOST_PATH_LOGS:-./logs}/irc-server:/var/log"
+            # -=[ Logs ]=-
+            #  ⚠️ Requires permission: `sudo chown -R 1000:1000 ./logs/irc-server`
+            - "${HOST_PATH_LOGS:-./logs}/irc-server:/var/log:z"
+            # -=[ Configs ]=-
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/irc/anope:/home/ircd/services/conf"
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/irc/unrealircd:/home/ircd/unrealircd/conf"
             - "${HOST_PATH_IRC_ANOPE_CONFIG_FILES:-/dev/null}:/home/ircd/services/conf/custom:ro"
