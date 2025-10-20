@@ -1,0 +1,52 @@
+# traefik Middlewares for HTTP routes
+# - More information: https://community.traefik.io/t/middleware-does-not-exist-but-it-is-defined/19253/8
+
+http:
+  middlewares:
+
+    # Enable compression
+    # - Use with: compress-gzip@file
+    # - Documentation: https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/compress/
+    compress-gzip:
+      compress: {}
+
+    # Add MIME-Type Autodetection
+    # - Use with: contenttype-add@file
+    # - Documentation: https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/contenttype/
+    contenttype-add:
+      contenttype: {}
+
+    # Add security headers
+    # - Use with: securityheaders-add@file
+    # - Documentation: https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/contenttype/
+    securityheaders-add:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+
+    # Rate limiting
+    # - Use with: rate-limit@file
+    # - Documentation: https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/ratelimit/
+    rate-limit:
+      rateLimit:
+        average: 100
+        period: 5s
+        burst: 200
+
+    # Allowed IP-Whitelist CIDRs
+    # 💡 Format: "192.168.1.7/32", "152.23.5.0/16"
+    # - Use with: ip-whitelist@file
+    # - Documentation: https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/ipallowlist/
+    ip-whitelist:
+      ipAllowList:
+          sourceRange:
+            # IPv4 - HOST
+            - "127.0.0.1/32"  # localhost
+            - "172.16.0.0/12" # Docker bridge networks (172.16-172.31)
+            # IPv6 - HOST
+            - "::1/128"       # localhost
+            - "fe80::/10"     # Docker Link-local
+            - "fd00::/8"      # Docker IPv6 default range
+            # EXTERNAL HOSTS
+            # ...

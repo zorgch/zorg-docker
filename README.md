@@ -11,10 +11,10 @@ zorg on Docker
 [🔖 Pre-requisites](#-pre-requisites)
 - [git installation](#git-installation)
 - [Docker installation](#docker-installation)
-  - [🔥 Firewall ports configuration](#-firewall-ports-configuration)
   - [🌐 DNS-records and Hosts](#-dns-records-and-hosts)
 - [📂 Folder structure setup](#-folder-structure-setup)
 - [💾 Docker images](#-docker-images)
+- [🧬 Docker networking](#-docker-networks)
 
 [🏁 Getting started](#-getting-started)
 - [Initial setup (one time only)](#initial-setup-one-time-only)
@@ -25,14 +25,15 @@ zorg on Docker
   - [Single «KeePass SFTP» service](#run-the-keepass-sftp-service-separately)
   - [Single «Quake 3 Arena Server»](#run-the-quake-3-arena-server-separately)
   - [Single «phpDocumentor» service](#run-the-phpdocumentor-service-separately)
-  - [🏷️ Docker services -> profiles mapping](#-docker-services---profiles-mapping)
+- [🏷️ Docker services -> profiles mapping](#%EF%B8%8F-docker-services---profiles-mapping)
 - [🩺 Resource usage & services health](#docker-resource-usage---services-health)
 - [🆙 Update all Docker images](#-update-all-docker-images)
 
-
-[👨‍🏫 Explanations](#-explanations)
+[👨‍🏫 Explanations](#%E2%80%8D-explanations)
 - [🧪 Debugging Docker Services](#-debugging-docker-services)
+- [🔥 Firewall ports configuration](#-firewall-ports-configuration)
 - [📄 The `/zorg-docker/resources`-directory & files](#-the-zorg-dockerresources-directory--files)
+- [🔁 logrotate handling](#-logrotate-must-be-done-on-the-host)
 - [💿 Import/export SQL-dumps with MariaDB](#-importexport-sql-dumps-with-mariadb)
 
 <br>
@@ -52,61 +53,6 @@ Following the [official installation instructions](https://docs.docker.com/engin
 
 > [!TIP]
 > On Ubuntu it's advised *against installing via snap*, as this may cause compatibility issues!
-
-<br>
-
-#### 🔥 Firewall ports configuration
-
-Ensure the Host machine's firewall is configured to expose & allow access through the required ports for different Docker Services:
-
-<details>
-<summary>Allow a port - or port range</summary>
-
-(non-conclusive, depends on what `ports:` are set in the `.env` file)
-
-```bash
-sudo ufw allow 80 # webserver/reverseproxy http
-sudo ufw allow 443 # webserver/reverseproxy https
-sudo ufw allow 3306/tcp # db-Server
-sudo ufw allow 6667/tcp # irc-Server
-sudo ufw allow 6697/tcp # irc-Server (secure)
-sudo ufw allow 21/tcp # ftp-Server | NOTE: 22 reserved for ssh
-sudo ufw allow 25/tcp # postfix-smtp Server
-sudo ufw allow 587/tcp # postfix-smtp Server (STARTTLS)
-sudo ufw allow 27960/udp # quake3-Server
-```
-</details>
-
-<details>
-<summary>Inspect all rules - i.e. allowed ports</summary>
-
-```bash
-% sudo ufw status
-
-Status: active
-
-To                         Action      From
---                         ------      ----
-80                         ALLOW       Anywhere
-443                        ALLOW       Anywhere
-3306/tcp                   ALLOW       Anywhere
-6667/tcp                   ALLOW       Anywhere
-6697/tcp                   ALLOW       Anywhere
-21/tcp                     ALLOW       Anywhere
-27960/udp                  ALLOW       Anywhere
-587                        ALLOW       Anywhere
-25                         ALLOW       Anywhere
-80 (v6)                    ALLOW       Anywhere (v6)
-443 (v6)                   ALLOW       Anywhere (v6)
-3306/tcp (v6)              ALLOW       Anywhere (v6)
-6667/tcp (v6)              ALLOW       Anywhere (v6)
-6697/tcp (v6)              ALLOW       Anywhere (v6)
-21/tcp (v6)                ALLOW       Anywhere (v6)
-27960/udp (v6)             ALLOW       Anywhere (v6)
-587 (v6)                   ALLOW       Anywhere (v6)
-25 (v6)                    ALLOW       Anywhere (v6)
-```
-</details>
 
 <br>
 
@@ -173,11 +119,9 @@ Creat the a folder structure on your host machine that reflects the following:
     ├── docker-compose.yml <-- Symbolic-linked ./zorg-docker/docker-compose.yml
     ├── docker-update.sh   <-- Symbolic-linked ./zorg-docker/docker-update.sh
     │
-    ├── code-docu/
-    │   ├── code/       <-- (Optional) Git clone of github.com/zorgch/zorg-code.git. Reference in .env
-    │   ├── docu/       <-- (Optional) Reference in .env
-    │   └── phpdoc.xml     <-- (Optional)
-    │
+    ├── reverseproxy/      <-- (Optional) To further customize OWASP WAF rules or IP-Whitelist. Ref in .env
+    │   └── owasp-coraza-waf.yaml
+    |
     ├── website/           <-- zorg Website configs & data
     │   ├── .env           <-- .env file for Website
     │   ├── apache.conf      <-- Copy & adjust "website/apache/example.conf" from repo
@@ -186,15 +130,14 @@ Creat the a folder structure on your host machine that reflects the following:
     │   │   ├── gallery/
     │   │   ├── tauschboerse/
     │   │   └── ...
-    │   │
     │   ├── cronjobs/
     │   │   └── cronjobs.crontab   <-- Copy & adjust "website/php/example.crontab" from repo
-    │   ├── modsec/
-    │   │   └── WAF-REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf   <-- (Optional)
-    │   │   └── WAF-RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf   <-- (Optional)
     │   └── sendmail/
     │       └── msmtprc    <-- Copy & adjust "website/sendmail/example-msmtprc" from repo
     │
+    ├── mailserver/        <-- (Optional) To further customize Postfix SMTP. Reference in .env
+    │   └── postfix-main.cf
+    |
     ├── irc/
     │   ├── anope-configs/    <-- Copy & adjust "irc/anope-example-sensitive-includes" from repo
     │   │   ├── sensitive-channels.conf
@@ -215,21 +158,28 @@ Creat the a folder structure on your host machine that reflects the following:
     │       ├── sensitive-server.conf
     │       └── sensitive-servicelink.conf
     │
-    ├── keepass/         <-- Reference in.env. Only AFTER sftp started: put kdbx file here.
+    ├── code-docu/
+    │   ├── code/       <-- (Optional) Git clone of github.com/zorgch/zorg-code.git. Reference in .env
+    │   ├── docu/       <-- (Optional) Reference in .env
+    │   └── phpdoc.xml     <-- (Optional)
     │
-    ├──quake3-baseq3/
-    │   ├── autoexec.cfg   <-- Copy & adjust "quake3/example-server.cfg" from repo
-    │   ├── pak0.pk3       <-- From a local licensed Quake3 installation
-    │   └── pak1-8.pk3     <-- Can be obtained at: https://ioquake3.org/extras/patch-data/
+    ├── keepass/         <-- Reference in .env Only AFTER sftp started: put kdbx file here.
+    │
+    ├── quake3-baseq3/   <-- Reference in .env
+    │   ├── q3config_server.cfg   <-- Copy & adjust "quake3/example-server.cfg" from repo
+    │   ├── pak0.pk3              <-- From a local licensed Quake3 installation
+    │   └── pak1-8.pk3            <-- Can be obtained at: https://ioquake3.org/extras/patch-data/
     │
     └── logs/              <-- Reference in .env
-        ├── cron/          <-- Sub-directories MUST also be created manually!
-        ├── ircserver/
-        ├── mailserver/
-        ├── website/
+        ├── website/       <-- Sub-directories MUST also be created manually!
         │   ├── apache/
         │   ├── php/
+        │   ├── sendmail/
         │   └── website/
+        ├── reverseproxy-owasp/
+        ├── mariadb/
+        ├── mailserver-smtp/
+        ├── irc-server/           <-- ⚠️ Requires: sudo chown -R 1000:1000
         ├── sftp/
         └── quake3-server/
 ```
@@ -246,14 +196,14 @@ Here's an overview of the underlaying Docker images used for the Docker Services
 | ------------------ | ------------------------- | ------------------ |
 | `sslcerts`         | `alpine/mkcert`           | [GitHub](https://github.com/alpine-docker/multi-arch-docker-images/tree/master/mkcert) |
 | `dashboard`        | `portainer/portainer-ce`  | [Docs](https://docs.portainer.io/start/install-ce/server/docker) |
-| `reverseproxy`     | `traefik`                 | [Docs](https://doc.traefik.io/traefik/) |
-| `reverseproxy-waf` | `owasp/modsecurity-crs`   | [GitHub](https://github.com/coreruleset/modsecurity-crs-docker) |
+| `reverseproxy`<br>+ `owasp-coraza-waf@file` | `traefik`<br>`coraza-http-wasm-traefik` | [Docs](https://doc.traefik.io/traefik/)<br>[GitHub](https://github.com/jcchavezs/coraza-http-wasm-traefik) |
 | `website`          | `php`                     | [Docker Hub](https://hub.docker.com/_/php) |
 | `db`               | `mariadb`                 | [Docs](https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/) |
+| `db-manager`       | `adminer`                 | [Docs](https://hub.docker.com/_/adminer/#how-to-use-this-image) |
 | `postfix-smtp`     | `mailserver/docker-mailserver` | [Docs](https://docker-mailserver.github.io/docker-mailserver/) |
 | `irc`              | `c0dy/unrealircd-anope`   | [Docker Hub](https://hub.docker.com/r/c0dy/unrealircd-anope) |
-| `irc-quizbot`      | `python:2.7-slim`         | [GitHub](https://github.com/zorgch/irc-quizbot) |
-| `stockticker`      | `python:3.9-slim`         | [GitHub](https://github.com/zorgch/zorg-docker/tree/dev/resources/python/stockticker) |
+| `irc-quizbot`      | `python:3.12-slim`        | [GitHub](https://github.com/zorgch/irc-quizbot) |
+| `stockticker`      | `python:3.12-slim`        | [GitHub](https://github.com/zorgch/zorg-docker/tree/dev/resources/python/stockticker) |
 | `servicealerts`    | `lorcas/docker-telegram-notifier` | [GitHub](https://github.com/luc-ass/docker-telegram-notifier) |
 | `sftp`             | `atmoz/sftp`              | [Docker Hub](https://hub.docker.com/r/atmoz/sftp/) |
 | `quake3`           | `jberrenberg/quake3`      | [GitHub](https://github.com/jberrenberg/docker-quake3/tree/master/quake3) |
@@ -262,6 +212,73 @@ Here's an overview of the underlaying Docker images used for the Docker Services
 </details>
 
 <br>
+
+### 🧬 Docker Networks
+
+In order to not block Ports for other networking services on the server / in other Docker stacks, this Docker stack has support for [HTTP, TCP (dedicated), and UDP shared networks](#add-external-docker-networks) (aka External Docker Networks).
+
+These are optional, but highly recommended to use - in order to prevent future port conflicts. Here's a schematic overview of the networking capabilities added:
+
+```mermaid
+graph TD
+  %% Externe Netzwerke
+  subgraph External Networks
+    lb_http["loadbalance-http<br>[external/shared]"]
+    lb_tcp["loadbalance-tcp<br>[external/shared]"]
+    lb_udp["loadbalance-udp<br>[external/shared]"]
+  end
+
+  %% zorg Main
+  subgraph zorg Live
+    zorg[zorg services]
+    grid["the-grid<br>→ loadbalance-http"]
+    superhighway["information-superhighway<br>→ loadbalance-tcp"]
+    slipgate["slipgate-teleporter<br>→ loadbalance-udp"]
+    zion["zion-mainframe<br>[internal only]"]
+  end
+
+  %% zorg Construct
+  subgraph zorg Construct
+    stack1[construct services]
+    stack1_http["→ loadbalance-http"]
+    stack1_tcp["→ loadbalance-tcp"]
+    stack1_udp["→ loadbalance-udp"]
+    internalnet["custom-net<br>[internal only]"]
+  end
+
+  %% Weitere Stacks
+  subgraph other-stack-2
+    stack2[stack 2 services]
+    stack2_http["→ loadbalance-http"]
+    stack2_internalnet["stack2_default<br>[internal only]"]
+  end
+
+  subgraph other-stack-3
+    stack3[stack 3 services]
+    stack3_tcp["→ loadbalance-tcp"]
+    stack3_udp["→ loadbalance-udp"]
+  end
+
+  %% Verbindungen zorg
+  zorg --> grid --> lb_http
+  zorg --> superhighway --> lb_tcp
+  zorg --> slipgate --> lb_udp
+  zorg --> zion
+
+  %% Verbindungen andere Stacks
+  stack1 --> stack1_http --> lb_http
+  stack1 --> stack1_tcp --> lb_tcp
+  stack1 --> stack1_udp --> lb_udp
+  stack1 --> internalnet
+
+  stack2 --> stack2_http --> lb_http
+  stack2 --> stack2_internalnet
+
+  stack3 --> stack3_tcp --> lb_tcp
+  stack3 --> stack3_udp --> lb_udp
+```
+
+<br><br>
 
 ### Initial setup (one time only)
 #### Git clone the `zorg-docker` repository
@@ -273,10 +290,10 @@ git clone -b <branch-name> --depth 1 https://github.com/zorgch/zorg-docker.git .
 > [!NOTE]
 > See below section for how to UPDATE the cloned git repository to get its latest changes.
 
-##### Copy the example `.env`-file
+##### Edit a copy of the `.env`-file
 
 ```bash
-cp ./zorg-docker/.env.example ./zorg-docker/.env
+cp ./zorg-docker/.env.example ./.env
 ```
 
 > [!IMPORTANT]
@@ -287,6 +304,22 @@ cp ./zorg-docker/.env.example ./zorg-docker/.env
 ```bash
 ln -s ./zorg-docker/docker-compose.yml ./docker-compose.yml
 ```
+
+#### Add external Docker networks
+
+These networks allow OTHER Docker Stacks and Services to connect to the same network.
+
+```bash
+docker network create loadbalance-http
+docker network create loadbalance-tcp
+docker network create loadbalance-udp
+```
+
+> [!NOTE]
+> Why is this important?
+> A: Access to Docker Services in the Stack from other Docker Stacks and Services.
+> B: This is particularly important to use **1 central Reverse-Proxy** to route traffic to the services in the correct Stack.
+> C: Conclusion of A & B means: *no Port blockings of common Ports* (e.g. `80` or `443`) by 1 single Docker Stack!
 
 #### Validate the Docker services configurations
 
@@ -356,7 +389,7 @@ git pull --rebase
 docker compose --profile all up -d
 ```
 
-* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `reverseproxy-waf`, `website`, `db`, `postfix-smtp`, `irc`, `irc-quizbot`, `stockticker`
+* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `website`, `db`, `postfix-smtp`, `irc`, `irc-quizbot`, `stockticker`, `sftp`, `quake3`
 </details>
 
 <details>
@@ -365,7 +398,7 @@ docker compose --profile all up -d
 ```bash
 docker compose --profile webserver up -d
 ```
-* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `reverseproxy-waf`, `website`, `db`, `postfix-smtp`
+* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `website`, `db`, `postfix-smtp`
 </details>
 
 <details>
@@ -387,7 +420,7 @@ docker compose --profile mailserver up -d
 </details>
 
 > [!CAUTION]
-> Do not take an individual service *down* using `--profile`, target it specifically instead!<br>`docker compose reverseproxy-waf down`
+> Do not take an individual service *down* using `--profile`, target it specifically instead!<br>`docker compose down stockticker`
 
 <br>
 
@@ -396,7 +429,7 @@ docker compose --profile mailserver up -d
 
 ```bash
 docker compose --profile keepass up -d
-docker compose sftp down
+docker compose down sftp
 ```
 
 <br>
@@ -405,8 +438,8 @@ docker compose sftp down
 <sup>*</sup> Due to a potential high load on the server, the «Quake 3 Arena» Server (`quake3`) is separated from the general services.
 
 ```bash
-docker compose --profile quake up -d
-docker compose quake3 down
+docker compose up -d quake3
+docker compose down quake3
 ```
 
 <br>
@@ -428,20 +461,20 @@ The `docker-compose.yml` file uses Docker Service-profiles to group services int
 Some single services have their own profile, in order to prevent them from starting/stopping when using `docker compose` without any `--profile`.
 
 > [!TIP]
-> Multiple profiles can be combined: `docker compose --profile webserver --profile irc up`
+> Multiple profiles can be combined: `docker compose --profile webserver --profile irc up -d`
 
-| Profile        | Applicablae Docker Services   | Example Usage                      |
-| -------------- | ----------------------------- | ---------------------------------- |
-| `all`          | All general services          | `--profile all`                    |
-| `setup`        | `sslcerts` `postfix-smtp`     | `--profile setup`                  |
-| `status`       | `servicealerts` `dashboard` `reverseproxy`    | `--profile status` |
-| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `reverseproxy-waf` `website` `db` `postfix-smtp` | `--profile webserver` |
+| Profile        | Applicablae Docker Services   | Example Usage                         |
+| -------------- | ----------------------------- | ------------------------------------- |
+| `all`          | All general services          | `--profile all`                       |
+| `setup`        | `sslcerts` `postfix-smtp`     | `--profile setup`                     |
+| `status`       | `servicealerts` `dashboard` `reverseproxy`      | `--profile status`  |
+| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `website` `db` `db-manager` `postfix-smtp` | `--profile webserver` |
 | `mailserver`   | `servicealerts` `dashboard` `reverseproxy` `postfix-smtp` | `--profile mailserver` |
-| `irc`          | `servicealerts` `dashboard` `irc` `irc-quizbot`           | `--profile irc`        |
-| `keepass`      | `servicealerts` `dashboard` `sftp`                        | `--profile keepass`    |
-| `quake`        | `servicealerts` `dashboard` `quake3`                      | `--profile quake`      |
-| `docu`         | `phpdoc`                      | `--profile docu`                   |
-| Single service | e.g. `stockticker`            | `docker compose up -d stockticker` |
+| `irc`          | `servicealerts` `dashboard` `irc` `irc-quizbot` | `--profile irc`     |
+| `keepass`      | `servicealerts` `dashboard` `sftp`              | `--profile keepass` |
+| `quake`        | `servicealerts` `dashboard` `quake3`            | `--profile quake`   |
+| `docu`         | `phpdoc`                      | `--profile docu`                      |
+| Single service | e.g. `stockticker`            | `docker compose up -d stockticker`    |
 
 <br>
 
@@ -465,7 +498,7 @@ docker stats --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}
 
 NAME                   CPU %     MEM USAGE / LIMIT     MEM %
 zorg-reverseproxy      0.00%     69.01MiB / 1GiB       6.74%
-zorg-reverseproxy-waf  0.03%     70.19MiB / 1GiB       6.85%
+zorg-stockticker       0.03%     70.19MiB / 1GiB       6.85%
 zorg-mariadb           0.01%     133.8MiB / 4GiB       3.27%
 zorg-website           0.01%     8.855MiB / 4GiB       0.22%
 zorg-dashboard         0.00%     27.06MiB / 1GiB       2.64%
@@ -512,6 +545,62 @@ cd /srv/<my-website>/<host>/
 For **DEBUGGING mode** – with an *interactive log output* to the active shell - omit the `-d` flag when starting services:
 
 `docker compose --file ./website/docker-compose.yml up` <-- no `-d` flag
+
+<br>
+
+#### 🔥 Firewall ports configuration
+
+> [!TIP]
+> Docker **circumvents** the Host machine's firewall – so usually NO need (or not possible) to configure the Host machine's firewall!
+
+Ensure the Host machine's firewall is configured to expose & allow access through the required ports for different Docker Services:
+
+<details>
+<summary>Allow a port - or port range</summary>
+
+A non-conclusive, depends on what `ports:` are set in the `.env` file.
+
+> [!IMPORTANT]
+> Do NOT expose the default Database port `3306` to the world-wide-web!
+
+```bash
+sudo ufw allow 80 # webserver/reverseproxy http
+sudo ufw allow 443 # webserver/reverseproxy https
+sudo ufw allow 9443/tcp # Docker dashboard (secure)
+sudo ufw allow 6667/tcp # irc-Server
+sudo ufw allow 6697/tcp # irc-Server (secure)
+sudo ufw allow 2222/tcp # ftp-Server | NOTE: 22 reserved for ssh
+sudo ufw allow 27960/udp # quake3-Server
+```
+</details>
+
+<details>
+<summary>Inspect all rules - i.e. allowed ports</summary>
+
+```bash
+% sudo ufw status
+
+Status: active
+
+To                         Action      From
+--                         ------      ----
+80                         ALLOW       Anywhere
+443                        ALLOW       Anywhere
+587                        ALLOW       Anywhere
+6667/tcp                   ALLOW       Anywhere
+6697/tcp                   ALLOW       Anywhere
+2222/tcp                   ALLOW       Anywhere
+27960/udp                  ALLOW       Anywhere
+80 (v6)                    ALLOW       Anywhere (v6)
+443 (v6)                   ALLOW       Anywhere (v6)
+587 (v6)                   ALLOW       Anywhere (v6)
+6667/tcp (v6)              ALLOW       Anywhere (v6)
+6697/tcp (v6)              ALLOW       Anywhere (v6)
+2222/tcp (v6)              ALLOW       Anywhere (v6)
+27960/udp (v6)             ALLOW       Anywhere (v6)
+```
+</details>
+
 
 <br>
 

@@ -1,3 +1,28 @@
+#                                                               ██████   ██████   ██████ ██   ██ ███████ ██████
+#   ███████  ██████  ████    ██████       ██████  ████   ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
+#      ███  ██    ██ ██  ██ ██           ██    ██ ██ ██  ██     ██   ██ ██    ██ ██      █████   █████   ██████
+#    ███    ██    ██ ██     ██   ███     ██    ██ ██  ██ ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
+#   ███████  ██████  ██      ██████       ██████  ██   ████     ██████   ██████   ██████ ██   ██ ███████ ██   ██
+# Portable, Server independent, Docker-based code to get the zorg Websites and Services up, running, and hosted.
+# Copyright (C) 2025  zorg Verein <https://github.com/zorgch>
+#
+#   This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+#
+#   This program comes with ABSOLUTELY NO WARRANTY; for details read the README.
+# This is free software, and you are welcome to redistribute it
+# under certain conditions; see the LICENSE.
+
 # PHP-sendmail replacement docu: https://wiki.archlinux.org/title/Msmtp#Send_mail_with_PHP_using_msmtp
 
 # Set default values for all following accounts.
@@ -12,7 +37,7 @@ tls                      off
 logfile /var/log/msmtp/msmtp.log
 
 account         docker
-host            smtp.zorg.dev
+host            postfix-smtp
 port            25
 from            info@zdocker.dev
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -x
 
 ########## Print GNU GPLv3 LICENSE notices ##########
 echo '
@@ -10,7 +10,7 @@ echo '
    ███    ██    ██ ██     ██   ███     ██    ██ ██  ██ ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
   ███████  ██████  ██      ██████       ██████  ██   ████     ██████   ██████   ██████ ██   ██ ███████ ██   ██
 Portable, Server independent, Docker-based code to get the zorg Websites and Services up, running, and hosted.
-Copyright (C) 2024  zorg Verein <https://github.com/zorgch>
+Copyright (C) 2024-2025  zorg Verein <https://github.com/zorgch>
 
   This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -36,12 +36,17 @@ mkdir -p /var/log/anope/
 
 
 ########## Symlink the SSL certificates (Bug in UnrealIRCd v4.x) ##########
-# Create SSL directory if it doesn't exist
-mkdir -p /home/ircd/unrealircd/conf/ssl
+if [ ! -d "/home/ircd/unrealircd/conf/ssl" ]; then
+  # Create SSL directory if it doesn't exist
+  mkdir -p /home/ircd/unrealircd/conf/ssl
 
-# Link the SSL certificates
-ln -sf /home/certs/fullchain.cert /home/ircd/unrealircd/conf/ssl/server.cert.pem
-ln -sf /home/certs/privkey.key /home/ircd/unrealircd/conf/ssl/server.key.pem
+  # Link the SSL certificates
+  if [ -f "/home/ircd/unrealircd/conf/custom/ssl/curl-ca-bundle.crt" ]; then
+    cp /home/ircd/unrealircd/conf/custom/ssl/curl-ca-bundle.crt /home/ircd/unrealircd/conf/ssl/
+    cp /home/certs/fullchain.cert /home/ircd/unrealircd/conf/ssl/server.cert.pem
+    cp /home/certs/privkey.key /home/ircd/unrealircd/conf/ssl/server.key.pem
+  fi
+fi
 
 
 ########## Start IRCd and Anope services ##########

@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -x
 
 ########## Print GNU GPLv3 LICENSE notices ##########
 echo '
@@ -46,12 +46,12 @@ fi
 ############### Assign Variables ##############
 DOCKER_STACK="Docker"
 DOCKER_STATUS_URL="the Status Dashboard"
-[ -n "$COMPOSE_PROJECT_NAME" ] && DOCKER_STACK="$COMPOSE_PROJECT_NAME Docker"
+[ -n "$COMPOSE_PROJECT_NAME" ] && DOCKER_STACK="Docker $COMPOSE_PROJECT_NAME"
 [[ -n "$DASHBOARD_HOST" && -n "$DOMAINNAME" ]] && DOCKER_STATUS_URL="[Status Dashboard](https://$DASHBOARD_HOST.$DOMAINNAME)"
 [ -n "$TELEGRAM_BOT_SERVICEALERTS_TOKEN" ] && BOT_TOKEN="$TELEGRAM_BOT_SERVICEALERTS_TOKEN"
 [ -n "$TELEGRAM_BOT_SERVICEALERTS_CHATID" ] && CHAT_ID="$TELEGRAM_BOT_SERVICEALERTS_CHATID"
 [ -n "$TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID" ] && CHAT_TOPIC_ID="$TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID"
-MESSAGE_ANNOUNCE="🔜 Scheduled updates for *$DOCKER_STACK* in T-15!"
+MESSAGE_ANNOUNCE="ANNOUNCEMENT 🔜 Scheduled updates for *$DOCKER_STACK* in T-15!"
 MESSAGE_TIMER_T5="⌛️ In 5 minutes: *$DOCKER_STACK* updating starts!"
 #MESSAGE_TIMER_C10="🔟"
 #MESSAGE_TIMER_C05="5️⃣"
@@ -60,12 +60,13 @@ MESSAGE_TIMER_C03="3️⃣"
 MESSAGE_TIMER_C02="2️⃣"
 MESSAGE_TIMER_C01="1️⃣"
 MESSAGE_START="⚙️ STARTING: *$DOCKER_STACK* updates..."
-MESSAGE_UPDATE="🆙 Update available for *__DOCKERIMAGE__*"
-MESSAGE_NOUPDATE="⏩ No update for *__DOCKERIMAGE__*, skipping."
+MESSAGE_CLEANUP="🗑️ Removing unused *__STATS__*..."
+MESSAGE_UPDATE="📥 Updating *__DOCKERIMAGE__*"
+MESSAGE_NOUPDATE="⏩ Skipping *__DOCKERIMAGE__* (no update)"
 MESSAGE_ERRUPDATE="⚠️ Something went wrong checking *__DOCKERIMAGE__*, please investigate."
-MESSAGE_RESTARTING="🔁 Rebuilding *__DOCKERIMAGE__*..."
+MESSAGE_RESTARTING="🔁 Restarting *${COMPOSE_PROJECT_NAME:+$COMPOSE_PROJECT_NAME-}__DOCKERSERVICE__*..."
 MESSAGE_FINISH="✅ ALL DONE: *$DOCKER_STACK* is up-to-date!
-> check $DOCKER_STATUS_URL"
+> Check $DOCKER_STATUS_URL"
 
 send_telegram_message() {
     local STATUSMESSAGE="$1"
@@ -83,11 +84,27 @@ send_telegram_message() {
          -F message_thread_id="$CHAT_TOPIC_ID" \
          -F parse_mode=MarkdownV2 \
          "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" 2>&1 || true
+    else
+        # Alternatively print to stdout
+        echo "$1"
     fi
 }
 
 
-############## Announcements #################
+########### Pre-flight Checks ##############
+DOCKER_COMPOSE_CONFIG_CHECK=$(docker compose --profile all config 2>&1 > /dev/null)
+if [ $? -ne 0 ]; then
+    ERROR=" :
+\`docker compose --profile all config\`
+> ❌ $DOCKER_COMPOSE_CONFIG_CHECK
+"
+    MESSAGE="${MESSAGE_ERRUPDATE/__DOCKERIMAGE__/$ERROR}"
+    send_telegram_message "$MESSAGE"
+    exit 1
+fi
+
+
+############ Announcements ###############
 send_telegram_message "$MESSAGE_ANNOUNCE"
 sleep 600 # Wait now 10 minutes
 send_telegram_message "$MESSAGE_TIMER_T5"
@@ -102,6 +119,30 @@ sleep 1
 send_telegram_message "$MESSAGE_TIMER_C01"
 sleep 1
 send_telegram_message "$MESSAGE_START"
+
+
+################# Cleanup unused Docker images #################
+UNUSED_IMAGES=$(docker image ls -f "dangling=true" --format '{{.Repository}} {{.Size}}' |
+awk '
+$1!="<none>"{
+  s=$2
+  if(s~/GB$/){sub(/GB/,"",s); gb=s+0}
+  else if(s~/MB$/){sub(/MB/,"",s); gb=(s+0)/1024}
+  else if(s~/kB$/){sub(/kB/,"",s); gb=(s+0)/1024/1024}
+  else if(s~/B$/){sub(/B/,"",s); gb=(s+0)/1024/1024/1024}
+  sum+=gb; n[$1]=1
+}
+END{
+  printf "%.1fGB: ",sum; sep="";
+  for(i in n){printf "%s%s",sep,i; sep=", "}
+}')
+# Only send message and prune if there are unused images
+if [[ ! "$UNUSED_IMAGES" =~ ^0\.0 ]]; then
+  MESSAGE="${MESSAGE_CLEANUP/__STATS__/$UNUSED_IMAGES}"
+  send_telegram_message "$MESSAGE"
+  docker image prune -a -f
+  docker builder prune -f
+fi
 
 
 ########## Update all Docker images ##########
@@ -120,9 +161,9 @@ do
         MESSAGE="${MESSAGE_UPDATE/__DOCKERIMAGE__/$image}"
         send_telegram_message "$MESSAGE"
 
-        MESSAGE2="${MESSAGE_RESTARTING/__DOCKERIMAGE__/$image}"
-        send_telegram_message "$MESSAGE2"
-        docker compose up -d --build "$image" 2>&1
+        # MESSAGE2="${MESSAGE_RESTARTING/__DOCKERIMAGE__/$image}"
+        # send_telegram_message "$MESSAGE2"
+        # docker compose up -d --build "$image" 2>&1
 
     # No udpate needed
     elif echo "$DOCKER_PULL_STATUS" | grep -q "Image is up to date"; then
@@ -136,5 +177,20 @@ do
     fi
 done
 
+
+################# Restart all running Docker Services #################
+for container in $(docker compose ps --services --status=running)
+do
+    MESSAGE="${MESSAGE_RESTARTING/__DOCKERSERVICE__/$container}"
+    send_telegram_message "$MESSAGE"
+    docker compose up -d --remove-orphans --build "$container" 2>&1
+done
+
+
+#### Remove old Docker images (that have been updated) ####
+docker image prune -a -f
+
+
+############# Finish ##################
 send_telegram_message "$MESSAGE_FINISH"
 exit 0
