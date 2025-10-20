@@ -161,6 +161,7 @@ services:
             - "traefik.enable=${REVERSEPROXY_DASHBOARD:-false}"
             # --- traefik Dashboard: /dashboard CONDITIONAL ---
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.tls=true}
+            - ${REVERSEPROXY_DASHBOARD:+${USE_LETSENCRYPT:+traefik.http.routers.api.tls.certresolver=letsencrypt}}
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.service=api@internal} # Exposes :8080/tcp
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.middlewares=ip-whitelist@file}
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.entryPoints=websecure}
@@ -182,12 +183,12 @@ services:
             - --serversTransport.insecureSkipVerify=true
             # -=[ HTTP Services ]=-
             # --- Default HTTP
-            - --entryPoints.web.address=:80/tcp
+            - --entryPoints.web.address=:80
             - --entryPoints.web.http.redirections.entryPoint.to=websecure
             - --entryPoints.web.http.redirections.entryPoint.scheme=https
             - --entryPoints.web.http.redirections.entryPoint.permanent=true
             # --- Default HTTPS
-            - --entryPoints.websecure.address=:443/tcp
+            - --entryPoints.websecure.address=:443
             - --entryPoints.websecure.http.tls=true
             - --entrypoints.websecure.http.maxheaderbytes=5120
             # -=[ Website ]=-
@@ -200,14 +201,14 @@ services:
             - --entryPoints.irc-tcp-ssl.address=:6697/tcp
             # -=[ SFTP Server ]=-
             - --entryPoints.sftp-tcp.address=:2222/tcp
-            # -=[ WAF Plugin (Coraza) ]=-
-            - --experimental.plugins.coraza.moduleName=github.com/jcchavezs/coraza-http-wasm-traefik
-            - --experimental.plugins.coraza.version=v0.3.0
             # -=[ Let's Encrypt configuration ]=-
             - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL:-hostmaster@${DOMAINNAME}}}
             - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.storage=/certs/acme.json}
-            - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.caserver=${LETSENCRYPT_CASERVER:-https://acme-v02.api.letsencrypt.org/directory}}
-            - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web}
+            - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.tlsChallenge=true}
+            - ${USE_LETSENCRYPT:+${LETSENCRYPT_CASERVER:+--certificatesResolvers.letsencrypt.acme.caserver=${LETSENCRYPT_CASERVER}}}
+            # -=[ WAF Plugin (Coraza) ]=-
+            - --experimental.plugins.coraza.moduleName=github.com/jcchavezs/coraza-http-wasm-traefik
+            - --experimental.plugins.coraza.version=v0.3.0
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - sslcerts-files:/certs:rw # :rw = read+write (explicit)
@@ -361,7 +362,7 @@ services:
             - MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=${MARIADB_DISABLE_ROOT_PASSWORD:-no}
             - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-}
             - MARIADB_DATABASE=${DATABASE_NAME:-}
-            # The following is only required if ≠ "root":
+            # ℹ️ The following is only required if ≠ "root":
             - MARIADB_ROOT_PASSWORD=${DATABASE_PASSWORD:-${MARIADB_ROOT_PASSWORD}}
             - MARIADB_USER=${DATABASE_USER:-${DATABASE_USER}}
             - MARIADB_PASSWORD=${DATABASE_USER:+${DATABASE_PASSWORD}}
@@ -373,7 +374,7 @@ services:
             "--long-query-time=3",
             "--general-log=${WEBSITE_IS_DEVELOPMENT:+1}",
             "--general-log-file=/var/log/mariadb/queries.log"
-            # Enable SSL/TLS // ℹ️ NOTE Requires PHP to have certs too & use MYSQLI_CLIENT_SSL
+            # -- Enable SSL/TLS -- # ℹ️ NOTE Requires PHP to have certs too & use MYSQLI_CLIENT_SSL
             #"--ssl-cert=/certs/fullchain.cert",
             #"--ssl-key=/certs/privkey.key"
         ]
@@ -468,10 +469,12 @@ services:
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.entryPoints=smtp-tcp"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.rule=HostSNI(`*`)"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.middlewares=ip-whitelist@file"
             - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service.loadbalancer.server.port=587"
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.tls.passthrough=true}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.entryPoints=smtp-tcp}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.rule=HostSNI(`*`)}
+            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.middlewares=ip-whitelist@file}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service}
             # --- SMTP with SSL/TLS (465) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.tls=true"
@@ -480,12 +483,15 @@ services:
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.entryPoints=smtp-ssl"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.rule=HostSNI(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.middlewares=ip-whitelist@file"
             - ${USE_LETSENCRYPT:-traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service.loadbalancer.server.port=465}
             - ${USE_LETSENCRYPT:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service.loadbalancer.server.port=25}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.tls.passthrough=true}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-plain-service}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.entryPoints=smtp-ssl}
-            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.rule=HostSNI(`*`)}
+            - ${MAILSERVER_HOST_INTERNAL:+${USE_LETSENCRYPT:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.rule=HostSNI(`*`)}}
+            - ${MAILSERVER_HOST_INTERNAL:+${USE_LETSENCRYPT:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.rule=HostSNI(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)}}
+            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.middlewares=ip-whitelist@file}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-plain-service.loadbalancer.server.port=25}
         environment:
             # 📖 HOWTO https://docker-mailserver.github.io/docker-mailserver/latest/config/environment/
@@ -504,8 +510,9 @@ services:
             - ENABLE_OPENDKIM=${MAILSERVER_ENABLE_DKIM:-0}
             - ENABLE_OPENDMARC=0
             - ENABLE_POLICYD_SPF=0
-            # Supported SSL_TYPE: {empty}->disabled | letsencrypt | manual->specify locations | self-signed
-            - SSL_TYPE=${USE_LETSENCRYPT:+letsencrypt}
+            # ℹ️ Supported SSL_TYPE: {empty}->disabled | letsencrypt | manual->specify locations | self-signed
+            #- ${USE_LETSENCRYPT:+SSL_TYPE=letsencrypt} # ⛔️ DISABLED because this breaks startup (+ SMTP is anways only internal on the Host)
+            - SSL_TYPE=
             - SSL_DOMAIN=${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}
             # (Optional) Relay to external SMTP-provider (Proton, Gmail, etc.)
             - DEFAULT_RELAY_HOST=${SMTP_RELAY_SERVER:-}
@@ -513,10 +520,10 @@ services:
             - RELAY_PASSWORD=${SMTP_RELAY_PASSWORD:-}
         volumes:
             #- /etc/localtime:/etc/localtime:ro # Should be obsolete because "TZ" - otherwise: use only on Linux hosts!
-            - sslcerts-files:/etc/letsencrypt:rw # :rw = read+write (explicit)
+            #- sslcerts-files:/etc/letsencrypt:rw # ⛔️ DISABLED (see above)
             - mail-data-files:/var/mail
             - mail-state-files:/var/mail-state
-            - "${HOST_PATH_MAILSERVER_CONFIGS:-/dev/null}:/tmp/docker-mailserver/"
+            - "${HOST_PATH_MAILSERVER_CONFIGS:-/dev/null}:/tmp/docker-mailserver"
             - "${HOST_PATH_LOGS:-./logs}/mailserver-smtp:/var/log/mail"
 
     #--------------
@@ -566,7 +573,8 @@ services:
             - ${USE_LETSENCRYPT:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.tls.certresolver=letsencrypt}
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.entryPoints=irc-tcp-ssl"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.rule=HostSNI(`*`)"
+            - ${USE_LETSENCRYPT:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.rule=HostSNI(`*`)}
+            - ${USE_LETSENCRYPT:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.rule=HostSNI(`${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}`)}
             - ${USE_LETSENCRYPT:-traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service.loadbalancer.server.port=6697}
             - ${USE_LETSENCRYPT:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service.loadbalancer.server.port=6667}
         environment:

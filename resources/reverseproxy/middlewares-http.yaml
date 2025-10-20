@@ -41,5 +41,12 @@ http:
     ip-whitelist:
       ipAllowList:
           sourceRange:
-            - "0.0.0.0/32"
-            - "::/128"
+            # IPv4 - HOST
+            - "127.0.0.1/32"  # localhost
+            - "172.16.0.0/12" # Docker bridge networks (172.16-172.31)
+            # IPv6 - HOST
+            - "::1/128"       # localhost
+            - "fe80::/10"     # Docker Link-local
+            - "fd00::/8"      # Docker IPv6 default range
+            # EXTERNAL HOSTS
+            # ...
