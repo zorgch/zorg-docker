@@ -112,7 +112,7 @@ services:
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-http-service"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.entryPoints=websecure"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.rule=Host(`${DASHBOARD_HOST}.${DOMAINNAME}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.middlewares=ip-whitelist@file,compress-gzip@file"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.middlewares=compress-gzip@file"
             - "traefik.http.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-http-service.loadbalancer.server.port=9000"
         command: >
             --tlscert /certs/live/${DOMAINNAME}/fullchain.cert
