@@ -156,7 +156,8 @@ Creat the a folder structure on your host machine that reflects the following:
     │       ├── sensitive-network.conf
     │       ├── sensitive-operators.conf
     │       ├── sensitive-server.conf
-    │       └── sensitive-servicelink.conf
+    │       ├── sensitive-servicelink.conf
+    │       └── ssl/
     │
     ├── code-docu/
     │   ├── code/       <-- (Optional) Git clone of github.com/zorgch/zorg-code.git. Reference in .env
