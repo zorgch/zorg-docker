@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -x
 
 ########## Print GNU GPLv3 LICENSE notices ##########
 echo '
@@ -91,7 +91,7 @@ DATE=$(date +%F-%H_%M_%S)
 OUTFILE="${BACKUP_DIR}/backup-${DB_NAME}-${DATE}.sql"
 
 # Messages
-MESSAGE_START="⚙️ STARTING: *$CONTAINER* backup of DB \`$DB_NAME\`…"
+MESSAGE_START="⚙️ STARTING: *$CONTAINER* backup of DB \`$DB_NAME\`..."
 MESSAGE_BACKUP="☑️ *SUCCESSFULLY* mariadb-dump'ed *$DB_NAME* to\n> \`$OUTFILE\`"
 MESSAGE_ERRBACKUP="⚠️ *FAILED* to backup $DB_NAME, please investigate: "
 MESSAGE_FINISH="✅ ALL DONE: *$CONTAINER* DB backup finished!"
@@ -104,24 +104,28 @@ send_telegram_message() {
     # Escape special characters
     STATUSMESSAGE="${STATUSMESSAGE//\"/\\\"}" # Escape literal "
     STATUSMESSAGE="${STATUSMESSAGE//\'/\\\'}" # Escape literal '
-    STATUSMESSAGE="${STATUSMESSAGE//-/\\\-}" # Escape "-" (Character is reserved)
-    STATUSMESSAGE="${STATUSMESSAGE//_/\\\_}" # Escape "_" (Character is reserved)
-    STATUSMESSAGE="${STATUSMESSAGE//./\\\.}" # Escape "." (Character is reserved)
-    STATUSMESSAGE="${STATUSMESSAGE//+/\\\+}" # Escape "+" (Character is reserved)
-    STATUSMESSAGE="${STATUSMESSAGE//=/\\\=}" # Escape "=" (Character is reserved)
-    STATUSMESSAGE="${STATUSMESSAGE//(/\\\(}" # Escape "(" (Character is reserved)
-    STATUSMESSAGE="${STATUSMESSAGE//)/\\\)}" # Escape ")" (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//:/\\:}" # Escape ":" (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//!/\\!}" # Escape "!" (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//-/\\-}" # Escape "-" (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//_/\\_}" # Escape "_" (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//./\\.}" # Escape "." (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//,/\\,}" # Escape "," (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//+/\\+}" # Escape "+" (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//=/\\=}" # Escape "=" (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//(/\\(}" # Escape "(" (Character is reserved)
+    STATUSMESSAGE="${STATUSMESSAGE//)/\\)}" # Escape ")" (Character is reserved)
 
     # Only send if both token and chat_id are set and message is not empty
     if [[ -n "$BOT_TOKEN" && -n "$CHAT_ID" && -n "$STATUSMESSAGE" ]]; then
-        local THREAD_PART=""
-        if [[ -n "$CHAT_TOPIC_ID" ]]; then
-            THREAD_PART=" \"message_thread_id\": \"$CHAT_TOPIC_ID\","
-        fi
-        curl -sS --fail -X POST \
-          -H "Content-Type: application/json" \
-          -d "{\"parse_mode\": \"MarkdownV2\", \"chat_id\": \"$CHAT_ID\",$THREAD_PART \"text\": \"${STATUSMESSAGE}\"}" \
-          "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" 2>&1 || true
+        curl -sS --fail -X POST -H "Content-Type:multipart/form-data" \
+         -F chat_id="$CHAT_ID" \
+         -F text="$STATUSMESSAGE" \
+         -F message_thread_id="$CHAT_TOPIC_ID" \
+         -F parse_mode=MarkdownV2 \
+         "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" 2>&1 || true
+    else
+        # Alternatively print to stdout
+        echo "$1"
     fi
 }
 
@@ -130,7 +134,6 @@ send_telegram_message() {
 send_telegram_message "$MESSAGE_START"
 sleep 15 # Wait 15 seconds to let the message be sent
 
-set +x
 MYSQLDUMP_PW_PARAM="${DB_PASS:+--password=$DB_PASS}"
 if ! DOCKER_ERROR=$( { docker exec -i "$CONTAINER" mariadb-dump \
   --user="$DB_USER" "$MYSQLDUMP_PW_PARAM" \
@@ -145,7 +148,6 @@ else
     # Successful
     send_telegram_message "$MESSAGE_BACKUP"
 fi
-set -x
 
 
 #### Remove old backups (>1 year) ####

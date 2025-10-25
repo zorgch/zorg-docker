@@ -44,7 +44,7 @@ services:
         entrypoint: sh
         command: >
             -c 'mkcert -install &&
-            mkcert -cert-file /certs/fullchain.cert -key-file /certs/privkey.key ${DOMAINNAME} *.${DOMAINNAME} www.${DOMAINNAME} ${SECONDARY_DOMAINNAME:+${SECONDARY_DOMAINNAME} *.${SECONDARY_DOMAINNAME} www.${SECONDARY_DOMAINNAME}} ${SELFSIGNED_CERT_HOSTS} &&
+            mkcert -cert-file /certs/fullchain.cert -key-file /certs/privkey.key ${DOMAINNAME} *.${DOMAINNAME} ${SECONDARY_DOMAINNAME:+${SECONDARY_DOMAINNAME} *.${SECONDARY_DOMAINNAME}} ${SELFSIGNED_CERT_HOSTS} &&
             cat /root/.local/share/mkcert/rootCA.pem >> /certs/fullchain.cert &&
             chmod 644 /certs/fullchain.cert && chmod 644 /certs/privkey.key'
         volumes:
@@ -71,7 +71,7 @@ services:
             - ONLY_WHITELIST=true
             - TELEGRAM_NOTIFIER_BOT_TOKEN=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:-}
             - TELEGRAM_NOTIFIER_CHAT_ID=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}
-            - TELEGRAM_NOTIFIER_TOPIC_ID=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}
+            - ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:+TELEGRAM_NOTIFIER_TOPIC_ID=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID}}
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock:ro
             - "${HOST_PATH_TELEGRAM_STATUSMESSAGES_CONFIG:-${HOST_DOCKER_WORKING_DIR}/resources/telegram-notifier/messages.js}:/usr/src/app/templates.js:ro"
@@ -100,8 +100,6 @@ services:
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
-            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${DASHBOARD_HOST:+https://${DASHBOARD_HOST}.${DOMAINNAME}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
@@ -112,7 +110,6 @@ services:
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-http-service"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.entryPoints=websecure"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.rule=Host(`${DASHBOARD_HOST}.${DOMAINNAME}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-ssl.middlewares=compress-gzip@file"
             - "traefik.http.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}portainer-http-service.loadbalancer.server.port=9000"
         command: >
             --tlscert /certs/live/${DOMAINNAME}/fullchain.cert
@@ -130,7 +127,7 @@ services:
         image: traefik
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}reverseproxy
-        restart: on-failure:1
+        restart: unless-stopped
         cpus: "${REVERSEPROXY_CPU:-0.5}"
         mem_limit: "${REVERSEPROXY_MEMORY:-512m}"
         security_opt:
@@ -152,11 +149,12 @@ services:
             - "${IRC_PORT_SSL:-6697}:6697/tcp"
             # -=[ SFTP Server ]=-
             - "${KEEPASS_PORT_SFTP:-2222}:2222/tcp"
+        expose:
+            - "8080"
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
-            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
+            - ${REVERSEPROXY_DASHBOARD:+telegram-notifier.service-uri=https://${DOMAINNAME}:8080}
             # -=[ traefik Reverse Proxy : routing CONDITIONAL ]=-
             - "traefik.enable=${REVERSEPROXY_DASHBOARD:-false}"
             # --- traefik Dashboard: /dashboard CONDITIONAL ---
@@ -181,6 +179,9 @@ services:
             - --providers.file.directory=/config
             - --providers.file.watch=true
             - --serversTransport.insecureSkipVerify=true
+            # -=[ WAF Plugin (Coraza) ]=-
+            - --experimental.plugins.coraza.modulename=github.com/jcchavezs/coraza-http-wasm-traefik
+            - --experimental.plugins.coraza.version=v0.3.0
             # -=[ HTTP Services ]=-
             # --- Default HTTP
             - --entryPoints.web.address=:80
@@ -206,9 +207,6 @@ services:
             - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.storage=/certs/acme.json}
             - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.tlsChallenge=true}
             - ${USE_LETSENCRYPT:+${LETSENCRYPT_CASERVER:+--certificatesResolvers.letsencrypt.acme.caserver=${LETSENCRYPT_CASERVER}}}
-            # -=[ WAF Plugin (Coraza) ]=-
-            - --experimental.plugins.coraza.moduleName=github.com/jcchavezs/coraza-http-wasm-traefik
-            - --experimental.plugins.coraza.version=v0.3.0
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - sslcerts-files:/certs:rw # :rw = read+write (explicit)
@@ -246,8 +244,6 @@ services:
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
-            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${DOMAINNAME:+https://${DOMAINNAME}}:${HTTPS_PORT:-443}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
@@ -256,21 +252,21 @@ services:
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main-service"
             - "traefik.http.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main-service.loadbalancer.server.port=80"
             - "traefik.http.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main-service.loadbalancer.passHostHeader=true"
-            # --- Enforce redirect from www. to root-domain (all sites) ---
-            - "traefik.http.middlewares.strip-www.redirectregex.regex=^https?://www.(.+)"
-            - "traefik.http.middlewares.strip-www.redirectregex.replacement=https://$${1}"
-            - "traefik.http.middlewares.strip-www.redirectregex.permanent=true"
+            # --- (DISABLED) Enforce redirect from www. to root-domain (all sites) ---
+            # - "traefik.http.middlewares.strip-www.redirectregex.regex=^https?://www.(.+)"
+            # - "traefik.http.middlewares.strip-www.redirectregex.replacement=https://$${1}"
+            # - "traefik.http.middlewares.strip-www.redirectregex.permanent=true"
             # --- Main website handling ---
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.tls=true"
             - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.tls.certresolver=letsencrypt}
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.entryPoints=websecure"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.rule=Host(`${DOMAINNAME:-website}`) || Host(`www.${DOMAINNAME:-website}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=strip-www,owasp-coraza-waf@file,contenttype-add@file,securityheaders-add@file,compress-gzip@file"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.rule=Host(`${DOMAINNAME:-website}`)"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=owasp-coraza-waf@file,contenttype-add@file,securityheaders-add@file"
             # --- Configure Redirect for Secondary Domainname ---
             - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls=true}
             - ${SECONDARY_DOMAINNAME:+${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls.certresolver=letsencrypt}}
             - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.entryPoints=websecure}
-            - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.rule=Host(`${SECONDARY_DOMAINNAME}`) || Host(`www.${SECONDARY_DOMAINNAME}`)}
+            - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.rule=Host(`${SECONDARY_DOMAINNAME}`)}
             - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.regex=^https?://(www\.)?${SECONDARY_DOMAINNAME}/(.*)}
             - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.replacement=https://${DOMAINNAME}/$${2}}
             - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.permanent=true}
@@ -351,8 +347,6 @@ services:
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
-            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=localhost:${MARIADB_PORT:-3306}}"
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             - "traefik.enable=false"
@@ -406,8 +400,6 @@ services:
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
-            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${DBMANAGER_HOST:+https://${DBMANAGER_HOST}.${DOMAINNAME}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
@@ -417,7 +409,7 @@ services:
             - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.tls.certresolver=letsencrypt}
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.entrypoints=websecure"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.rule=Host(`${DBMANAGER_HOST}.${DOMAINNAME}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.middlewares=ip-whitelist@file,securityheaders-add@file,compress-gzip@file"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer-ssl.middlewares=ip-whitelist@file,securityheaders-add@file"
         environment:
             # 📖 HOWTO https://github.com/wodby/adminer?tab=readme-ov-file#readme
             - TZ=${TIMEZONE:-Europe/Zurich}
@@ -457,8 +449,6 @@ services:
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
-            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}:${MAILSERVER_PORT_SMTP_SSL:-465}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             # 📖 HOWTO See docker-mailserver.github.io/docker-mailserver/v14.0/examples/tutorials/mailserver-behind-proxy/
@@ -469,12 +459,10 @@ services:
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.entryPoints=smtp-tcp"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.rule=HostSNI(`*`)"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.middlewares=ip-whitelist@file"
             - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service.loadbalancer.server.port=587"
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.tls.passthrough=true}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.entryPoints=smtp-tcp}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.rule=HostSNI(`*`)}
-            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.middlewares=ip-whitelist@file}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service}
             # --- SMTP with SSL/TLS (465) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.tls=true"
@@ -483,7 +471,6 @@ services:
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.entryPoints=smtp-ssl"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.rule=HostSNI(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.middlewares=ip-whitelist@file"
             - ${USE_LETSENCRYPT:-traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service.loadbalancer.server.port=465}
             - ${USE_LETSENCRYPT:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service.loadbalancer.server.port=25}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.tls.passthrough=true}
@@ -491,7 +478,6 @@ services:
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.entryPoints=smtp-ssl}
             - ${MAILSERVER_HOST_INTERNAL:+${USE_LETSENCRYPT:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.rule=HostSNI(`*`)}}
             - ${MAILSERVER_HOST_INTERNAL:+${USE_LETSENCRYPT:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.rule=HostSNI(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)}}
-            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.middlewares=ip-whitelist@file}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-plain-service.loadbalancer.server.port=25}
         environment:
             # 📖 HOWTO https://docker-mailserver.github.io/docker-mailserver/latest/config/environment/
@@ -556,8 +542,6 @@ services:
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
-            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${IRC_HOST:+irc://${IRC_HOST}.${DOMAINNAME}:${IRC_PORT:-6667}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
@@ -619,8 +603,6 @@ services:
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
-            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=/join #quiz"
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             - "traefik.enable=false"
@@ -657,8 +639,7 @@ services:
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
-            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
+            - ${STOCKTICKER_SYMBOLS:+telegram-notifier.service-uri=Symbols ${STOCKTICKER_SYMBOLS:-}}
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             - "traefik.enable=false"
         environment:
@@ -701,9 +682,7 @@ services:
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
-            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
-            - "telegram-notifier.service-uri=${KEEPASS_HOST:+sftp://${KEEPASS_HOST}.${DOMAINNAME}:${KEEPASS_PORT_SFTP:-2222}}"
+            - "telegram-notifier.service-uri=${KEEPASS_HOST:+sftp -P ${KEEPASS_PORT_SFTP:-2222} ${KEEPASS_SFTP_USER}@${KEEPASS_HOST}.${DOMAINNAME}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
             - "traefik.docker.network=${NETWORK_TCP_SERVICES:-loadbalance-tcp}"
@@ -748,9 +727,7 @@ services:
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
-            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
-            - "telegram-notifier.service-uri=${QUAKE3_HOST:+quake3://${QUAKE3_HOST}.${DOMAINNAME}:${QUAKE3_PORT:-27960}}"
+            - "telegram-notifier.service-uri=${QUAKE3_HOST:+/connect ${QUAKE3_HOST}.${DOMAINNAME}:${QUAKE3_PORT:-27960}}"
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             # ℹ️ Not using traefik, because: «There must be one (and only one!) UDP service referenced per UDP router!»
             - "traefik.enable=false"

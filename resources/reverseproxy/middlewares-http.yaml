@@ -40,13 +40,57 @@ http:
     # - Documentation: https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/ipallowlist/
     ip-whitelist:
       ipAllowList:
-          sourceRange:
-            # IPv4 - HOST
-            - "127.0.0.1/32"  # localhost
-            - "172.16.0.0/12" # Docker bridge networks (172.16-172.31)
-            # IPv6 - HOST
-            - "::1/128"       # localhost
-            - "fe80::/10"     # Docker Link-local
-            - "fd00::/8"      # Docker IPv6 default range
-            # EXTERNAL HOSTS
-            # ...
+        sourceRange:
+          # IPv4 - HOST
+          - "127.0.0.1/32"  # localhost
+          - "172.16.0.0/12" # Docker bridge networks (172.16-172.31)
+          # IPv6 - HOST
+          - "::1/128"       # localhost
+          - "fe80::/10"     # Docker Link-local
+          - "fd00::/8"      # Docker IPv6 default range
+          # EXTERNAL HOSTS
+          # - ".../32"
+
+    owasp-coraza-waf:
+      plugin:
+        coraza:
+          directives:
+            # Basic WAF Configuration
+            - SecRuleEngine On
+            # -- Persistent Data Storage
+            - SecDataDir /var/lib/coraza/
+            # -- Audit Logging Configuration
+            - SecAuditEngine RelevantOnly
+            - SecAuditLogFormat JSON
+            - SecAuditLogType Serial
+            - SecAuditLogParts ABIJDEFHZ
+            - SecAuditLogRelevantStatus "^(?:4|5)\\d{2}$"
+            # -- Request Body rules: Size Limits (DoS Protection) | Max 12.5 MB & 128 KB buffer
+            - SecRequestBodyAccess On
+            - SecRequestBodyLimit 13107200
+            - SecRequestBodyInMemoryLimit 131072
+            - SecRequestBodyLimitAction ProcessPartial
+            # -- Response Body rules (OFF --> has impact on latency & memory)
+            #- SecResponseBodyAccess Off
+            #- SecResponseBodyMimeType text/plain text/html text/xml
+            #- SecResponseBodyLimit 524288
+            #- SecResponseBodyLimitAction ProcessPartial
+
+            # Security Rules
+            # -- Prevent URL SQL-Injections and XSS Requests
+            - SecRule MULTIPART_STRICT_ERROR "!@eq 0" "id:200003,phase:2,t:none,log,deny,status:400,msg:'Multipart request body failed strict validation.'"
+            - SecRule ARGS "@contains <script" "id:102,phase:2,t:lowercase,log,deny,status:403,msg:'XSS attempt detected'"
+            - SecRule ARGS "@pm union select delete from drop table insert into" "id:103,phase:2,t:lowercase,log,deny,status:403,msg:'SQL injection attempt detected'"
+            # -- Request Body Parsers (API Security)
+            - SecRule REQUEST_HEADERS:Content-Type "^(?:application(?:/soap\+|/)|text/)xml" "id:200000,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=XML"
+            - SecRule REQUEST_HEADERS:Content-Type "^application/json" "id:200001,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=JSON"
+            - SecRule REQUEST_HEADERS:Content-Type "^application/[a-z0-9.-]+[+]json" "id:200006,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=JSON"
+            # -- Request Body Error Handling
+            - SecRule REQBODY_ERROR "!@eq 0" "id:200002,phase:2,t:none,log,deny,status:400,msg:'Failed to parse request body.',logdata:'%{reqbody_error_msg}',severity:2"
+
+            # Whitelist Rules
+            - SecRule REQUEST_URI "@rx \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$" "id:104,phase:1,pass,nolog"
+            # -- Restrict file types to specific locations only
+            #- SecRule REQUEST_URI "@rx ^/(assets|static|images|css|js|fonts)/.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$" "id:104,phase:1,pass,nolog,msg:'Allow static assets'"
+            # -- Allow any incoming cookies (any name/value) & Allow any Set-Cookie on http responses
+            - SecRule REQUEST_COOKIES|REQUEST_COOKIES_NAMES "." "id:901100,phase:1,pass,nolog"

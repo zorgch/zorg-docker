@@ -33,13 +33,16 @@ under certain conditions; see the LICENSE.'
 
 
 ######## Check and Load dependencies ##########
-if [ ! -f docker-compose.yml ]; then
-  echo "docker-compose.yml not found"
+if [ ! -f "./docker-compose.yml" ]; then
+  echo "Error: No ./docker-compose.yml file found"
   exit 1
 fi
 
-if [ -f .env ]; then
-  source .env
+if [ ! -f "./.env" ]; then
+  echo "Error: No ./.env file found"
+  exit 1
+else
+  source "./.env"
 fi
 
 
@@ -70,11 +73,11 @@ MESSAGE_FINISH="✅ ALL DONE: *$DOCKER_STACK* is up-to-date!
 
 send_telegram_message() {
     local STATUSMESSAGE="$1"
-    local STATUSMESSAGE="${STATUSMESSAGE//:/\\:}" # Escape ":"
-    local STATUSMESSAGE="${STATUSMESSAGE//-/\\-}" # Escape "-"
-    local STATUSMESSAGE="${STATUSMESSAGE//,/\\,}" # Escape ","
-    local STATUSMESSAGE="${STATUSMESSAGE//./\\.}" # Escape "."
-    local STATUSMESSAGE="${STATUSMESSAGE//!/\\!}" # Escape "!"
+    STATUSMESSAGE="${STATUSMESSAGE//:/\\:}" # Escape ":"
+    STATUSMESSAGE="${STATUSMESSAGE//-/\\-}" # Escape "-"
+    STATUSMESSAGE="${STATUSMESSAGE//,/\\,}" # Escape ","
+    STATUSMESSAGE="${STATUSMESSAGE//./\\.}" # Escape "."
+    STATUSMESSAGE="${STATUSMESSAGE//!/\\!}" # Escape "!"
 
     # Only send if both token and chat_id are set and message is not empty
     if [[ -n "$BOT_TOKEN" && -n "$CHAT_ID" && -n "$STATUSMESSAGE" ]]; then

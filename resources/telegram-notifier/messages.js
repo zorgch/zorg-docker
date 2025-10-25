@@ -5,7 +5,7 @@ module.exports = {
 
     // Container up
     container_start: e =>
-        `✅ ${e.Actor.Attributes['com.docker.compose.project']} <b>${e.Actor.Attributes['com.docker.compose.service']}</b> is UP!\n` +
+        `✅ <b>${e.Actor.Attributes['com.docker.compose.service']}(${e.Actor.Attributes['com.docker.compose.project']})</b> is UP!\n` +
         (e.Actor.Attributes['telegram-notifier.service-uri'] ? `<pre>${e.Actor.Attributes['telegram-notifier.service-uri']}</pre>` : ''),
 
     // Container down
@@ -31,20 +31,20 @@ module.exports = {
         }
 
         if (exitCode in normalMap) {
-            return `⏹️ ${e.Actor.Attributes['com.docker.compose.project']} <b>${e.Actor.Attributes['com.docker.compose.service']}</b> was STOPPED\n` +
+            return `⏹️ <b>${e.Actor.Attributes['com.docker.compose.service']}(${e.Actor.Attributes['com.docker.compose.project']})</b> was STOPPED\n` +
             `[${normalMap[exitCode]}]`;
         } else if (exitCode in nonNormalMap) {
-            return `🚨 ${e.Actor.Attributes['com.docker.compose.project']} <b>${e.Actor.Attributes['com.docker.compose.service']}</b> is DOWN!\n` +
+            return `🚨 <b>${e.Actor.Attributes['com.docker.compose.service']}(${e.Actor.Attributes['com.docker.compose.project']})</b> is DOWN!\n` +
             `[${nonNormalMap[exitCode]}]`;
         } else {
-            return `💥 ${e.Actor.Attributes['com.docker.compose.project']} <b>${e.Actor.Attributes['com.docker.compose.service']}</b> has CRASHED!`;
+            return `💥 <b>${e.Actor.Attributes['com.docker.compose.service']}(${e.Actor.Attributes['com.docker.compose.project']})</b> has CRASHED!`;
         }
     },
 
     // Healthchecks
     'container_health_status: healthy': e =>
-        `🔆 ${e.Actor.Attributes['com.docker.compose.project']} <b>${e.Actor.Attributes['com.docker.compose.service']}</b> is healthy`,
+        `🔆 <b>${e.Actor.Attributes['com.docker.compose.service']}(${e.Actor.Attributes['com.docker.compose.project']})</b> is healthy`,
     'container_health_status: unhealthy': e =>
-        `🛟 ${e.Actor.Attributes['com.docker.compose.project']} <b>${e.Actor.Attributes['com.docker.compose.service']}</b> became UNHEALTHY!\n` +
-        `Check <a href="https://dockerstatus.zorg.dev">Docker Status Dashboard</a> for insights.`,
+        `🛟 <b>${e.Actor.Attributes['com.docker.compose.service']}(${e.Actor.Attributes['com.docker.compose.project']})</b> became UNHEALTHY!\n` +
+        `Check <a href="https://dockerstatus.zorg-local.dev">Docker Status Dashboard</a> for insights.`,
 };

@@ -31,8 +31,10 @@ under certain conditions; see the LICENSE.'
 
 
 ########## Create Log directories to prevent read/write errors ##########
-mkdir -p /var/log/unrealircd/
-mkdir -p /var/log/anope/
+if [ ! -d "/var/log/unrealircd" ]; then
+  mkdir -p /var/log/unrealircd/
+  mkdir -p /var/log/anope/
+fi
 
 
 ########## Symlink the SSL certificates (Bug in UnrealIRCd v4.x) ##########
@@ -41,10 +43,12 @@ if [ ! -d "/home/ircd/unrealircd/conf/ssl" ]; then
   mkdir -p /home/ircd/unrealircd/conf/ssl
 
   # Link the SSL certificates
-  if [ -f "/home/ircd/unrealircd/conf/custom/ssl/curl-ca-bundle.crt" ]; then
-    cp /home/ircd/unrealircd/conf/custom/ssl/curl-ca-bundle.crt /home/ircd/unrealircd/conf/ssl/
-    cp /home/certs/fullchain.cert /home/ircd/unrealircd/conf/ssl/server.cert.pem
-    cp /home/certs/privkey.key /home/ircd/unrealircd/conf/ssl/server.key.pem
+  # if [ -f "/home/ircd/unrealircd/conf/custom/ssl/curl-ca-bundle.crt" ]; then
+  #   cp /home/ircd/unrealircd/conf/custom/ssl/curl-ca-bundle.crt /home/ircd/unrealircd/conf/ssl/
+  # fi
+  if [ -f "/home/certs/fullchain.cert" ]; then
+    cp -f /home/certs/fullchain.cert /home/ircd/unrealircd/conf/ssl/server.cert.pem
+    cp -f /home/certs/privkey.key /home/ircd/unrealircd/conf/ssl/server.key.pem
   fi
 fi
 
