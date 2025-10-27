@@ -175,9 +175,10 @@ services:
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.middlewares=redirect-to-https"
         command:
             - --global.sendAnonymousUsage=false
+            - --log.level=${REVERSEPROXY_LOGLEVEL:-ERROR}
+            - --log.compress=true
             - --api.dashboard=${REVERSEPROXY_DASHBOARD:-false}
             - --api.insecure=${REVERSEPROXY_DASHBOARD:-false}
-            - --log.level=${REVERSEPROXY_LOGLEVEL:-ERROR}
             - --providers.docker=true
             - --providers.docker.exposedByDefault=false
             - --providers.file.directory=/config
@@ -216,7 +217,7 @@ services:
             - sslcerts-files:/certs:rw # :rw = read+write (explicit)
             - "${HOST_PATH_REVERSEPROXY_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/reverseproxy}:/config:ro" # :ro = read-only
             # -=[ Logs ]=-
-            - "${HOST_PATH_LOGS:-./logs}/reverseproxy-owasp:/var/lib/coraza"
+            - "${HOST_PATH_LOGS:-./logs}/reverseproxy-owasp:/var/log/coraza"
 
     #----------------------
     # 🌐 Apache-PHP Website
