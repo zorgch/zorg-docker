@@ -167,7 +167,7 @@ services:
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.service=api@internal} # Exposes :8080/tcp
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.middlewares=ip-whitelist@file}
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.entryPoints=websecure}
-            # --- Global redirect to HTTPS ---
+            # --- HTTP : Global redirect to HTTPS ---
             - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
             - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.rule=HostRegexp(`{host:.+}`)"
@@ -258,17 +258,16 @@ services:
             # --- Service ports (the container is listening on) ---
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main-service"
             - "traefik.http.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main-service.loadbalancer.server.port=80"
-            - "traefik.http.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main-service.loadbalancer.passHostHeader=true"
-            # --- (DISABLED) Enforce redirect from www. to root-domain (all sites) ---
-            # - "traefik.http.middlewares.strip-www.redirectregex.regex=^https?://www.(.+)"
-            # - "traefik.http.middlewares.strip-www.redirectregex.replacement=https://$${1}"
-            # - "traefik.http.middlewares.strip-www.redirectregex.permanent=true"
+            # --- (CONDITIONAL) Enforce redirect from www. to root-domain (all sites) ---
+            - "traefik.http.middlewares.strip-www.redirectregex.regex=^https?://www\\.(.+)"
+            - "traefik.http.middlewares.strip-www.redirectregex.replacement=https://$${1}"
+            - "traefik.http.middlewares.strip-www.redirectregex.permanent=true"
             # --- Main website handling ---
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.tls=true"
             - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.tls.certresolver=letsencrypt}
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.entryPoints=websecure"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.rule=Host(`${DOMAINNAME:-website}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=owasp-coraza-waf@file,contenttype-add@file,securityheaders-add@file"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.rule=Host(`${DOMAINNAME:-website}`) || Host(`www.${DOMAINNAME:-website}`)"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=${WEBSITE_STRIP_WWW:+strip-www,}owasp-coraza-waf@file,contenttype-add@file,securityheaders-add@file"
             # --- Configure Redirect for Secondary Domainname ---
             # - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls=true}
             # - ${SECONDARY_DOMAINNAME:+${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls.certresolver=letsencrypt}}
