@@ -44,7 +44,7 @@ services:
         entrypoint: sh
         command: >
             -c 'mkcert -install &&
-            mkcert -cert-file /certs/fullchain.cert -key-file /certs/privkey.key ${DOMAINNAME} *.${DOMAINNAME} ${SECONDARY_DOMAINNAME:+${SECONDARY_DOMAINNAME} *.${SECONDARY_DOMAINNAME}} ${SELFSIGNED_CERT_HOSTS} &&
+            mkcert -cert-file /certs/fullchain.cert -key-file /certs/privkey.key ${DOMAINNAME} *.${DOMAINNAME} &&
             cat /root/.local/share/mkcert/rootCA.pem >> /certs/fullchain.cert &&
             chmod 644 /certs/fullchain.cert && chmod 644 /certs/privkey.key'
         volumes:
@@ -195,8 +195,10 @@ services:
             - --entryPoints.web.http.redirections.entryPoint.permanent=true
             # --- Default HTTPS
             - --entryPoints.websecure.address=:443
-            - --entryPoints.websecure.http.tls=true
             - --entrypoints.websecure.http.maxheaderbytes=5120
+            - --entryPoints.websecure.http.tls=true
+            - --entryPoints.websecure.http.tls.domains[0].main=${DOMAINNAME}
+            - --entryPoints.websecure.http.tls.domains[0].sans=*.${DOMAINNAME}
             # -=[ Website ]=-
             - --entryPoints.php-xdebug.address=:9003/tcp
             # -=[ Mail Server ]=-
