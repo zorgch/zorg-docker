@@ -270,14 +270,14 @@ services:
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.rule=Host(`${DOMAINNAME:-website}`)"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=owasp-coraza-waf@file,contenttype-add@file,securityheaders-add@file"
             # --- Configure Redirect for Secondary Domainname ---
-            - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls=true}
-            - ${SECONDARY_DOMAINNAME:+${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls.certresolver=letsencrypt}}
-            - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.entryPoints=websecure}
-            - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.rule=Host(`${SECONDARY_DOMAINNAME}`)}
-            - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.regex=^https?://(www\.)?${SECONDARY_DOMAINNAME}/(.*)}
-            - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.replacement=https://${DOMAINNAME}/$${2}}
-            - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.permanent=true}
-            - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.middlewares=redirect-to-main}
+            # - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls=true}
+            # - ${SECONDARY_DOMAINNAME:+${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls.certresolver=letsencrypt}}
+            # - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.entryPoints=websecure}
+            # - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.rule=Host(`${SECONDARY_DOMAINNAME}`)}
+            # - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.regex=^https?://(www\.)?${SECONDARY_DOMAINNAME}/(.*)}
+            # - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.replacement=https://${DOMAINNAME}/$${2}}
+            # - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.permanent=true}
+            # - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.middlewares=redirect-to-main}
             # --- Configure Xdebug (only in DEV mode) - Port 9003 ---
             - ${XDEBUG_PORT:+traefik.tcp.routers.xdebug.entryPoints=php-xdebug}
             - ${XDEBUG_PORT:+traefik.tcp.routers.xdebug.rule=HostSNI(`*`)}
