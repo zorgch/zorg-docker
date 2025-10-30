@@ -114,9 +114,9 @@ http:
 
             # OWASP Security Rules
             # [ How Rule IDs Affect Processing ]
-            #  Uniqueness: IDs must be unique (which you already know)
-            #  Processing Order: Rules are processed in the order they appear in the configuration, NOT by ID number
-            #  Convention: IDs are typically used for organizational purposes and to follow CRS (Core Rule Set) conventions:
+            #  - Uniqueness: IDs must be unique
+            #  - Processing Order: Rules are processed in the order they appear in the configuration, NOT by ID number
+            #  - Convention: IDs are typically used for organizational purposes and to follow CRS (Core Rule Set) conventions:
             #   1-99,999: Reserved for local custom rules
             #   100,000-199,999: Internal/initialization rules
             #   200,000-299,999: Protocol validation and anomaly scoring
@@ -142,14 +142,51 @@ http:
             # -- JSON content type detection (vendor-specific)
             - SecRule REQUEST_HEADERS:Content-Type "^application/[a-z0-9.-]+[+]json" "id:200002,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=JSON,msg:'Enable JSON body parser for vendor types'"
 
+            # START BOTS=============================================================
+            # -=[ Block Common Bots / Malicious-Crawlers ]=-
+            #            (phase:1, no logging)
+            # -----------------------------------------------------------------------
+            # -- cgi-bin requests
+            - SecRule REQUEST_URI "@rx (?i)/cgi-bin/" "id:400100,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'CGI-BIN access attempt blocked'"
+            # -- Shell script files (.sh)
+            - SecRule REQUEST_URI "@rx (?i)\\.sh($|\\?)" "id:400200,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'Shell script access attempt blocked'"
+            # -- JSP files
+            - SecRule REQUEST_URI "@rx (?i)\\.jsp($|\\?)" "id:400300,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'JSP file access attempt blocked'"
+            # -- ASP/ASPX files
+            - SecRule REQUEST_URI "@rx (?i)\\.aspx?($|\\?)" "id:400400,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'ASP/ASPX file access attempt blocked'"
+            # -- Additional common exploit paths
+            - SecRule REQUEST_URI "@rx (?i)(/phpmyadmin|/phpMyAdmin|/pma|/mysql|/myadmin|/db|/database)" "id:400500,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'Database admin access attempt blocked'"
+            # -- .env and other config files
+            - SecRule REQUEST_URI "@rx (?i)\\.(env|git|svn|htaccess|htpasswd|ini|log|bak|backup|old|sql)($|\\?)" "id:400600,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'Sensitive file access attempt blocked'"
+            # -- PHP files in common exploit/admin paths ONLY
+            # Note: This is a chained rule pair. The first rule is the rule id for the whole chain.
+            - SecRule REQUEST_URI "@rx (?i)\\.(php|phtml|php3|php4|php5|phps)($|\\?)" "id:400900,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'PHP file access attempt blocked in exploit path',chain"
+            - SecRule REQUEST_URI "@rx (?i)(admin|config|setup|install|test|backup|shell|upload|wp-admin|wp-login|xmlrpc)" "t:none,t:urlDecodeUni,t:lowercase"
+            # -- WordPress-related requests
+            - SecRule REQUEST_URI "@rx (?i)(/wp-|/wordpress|wp-content|wp-includes|wp-admin|wp-login|xmlrpc\.php|wp-config)" "id:400910,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'WordPress access attempt blocked'"
+            # -- Common CMS/framework paths
+            - SecRule REQUEST_URI "@rx (?i)(/drupal|/joomla|/magento|/typo3|/laravel|/codeigniter|/symfony)" "id:400920,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'CMS Framework access attempt blocked'"
+            # -- Common admin panels
+            - SecRule REQUEST_URI "@rx (?i)(/admin|/administrator|/manager|/webadmin|/controlpanel|/cpanel)" "id:400930,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'Admin panel access attempt blocked'"
+            # END BOTS===============================================================
+
+            # START CUSTOM WHITELISTING==============================================
+            #      <!> Whitelists should run early (phase:1, before body parsing)
+            # -----------------------------------------------------------------------
+	    # Add custom rules below vvv | Use id:99000 - id:99999
+	    # END CUSTOM WHITELISTING================================================
+
             # (2) Protocol Validation (Phase 2)
             # -- Request body parsing errors
-            - SecRule REQBODY_ERROR "!@eq 0" "id:200010,phase:2,t:none,log,deny,status:400,msg:'Failed to parse request body',logdata:'%{reqbody_error_msg}',severity:2"
+            - SecRule REQBODY_ERROR "!@eq 0" "id:200010,phase:2,t:none,deny,log,severity:5,status:400,logdata:'%{reqbody_error_msg}',msg:'Failed to parse request body'"
             # -- Multipart validation
-            - SecRule MULTIPART_STRICT_ERROR "!@eq 0" "id:200011,phase:2,t:none,log,deny,status:400,msg:'Multipart request body failed strict validation',severity:2"
+            - SecRule MULTIPART_STRICT_ERROR "!@eq 0" "id:200020,phase:2,t:none,deny,log,severity:5,status:400,msg:'Multipart request body failed strict validation'"
 
             # (3) Attack Detection (Phase 2)
             # -- XSS detection
-            - SecRule ARGS "@contains <script" "id:200100,phase:2,t:lowercase,log,deny,status:403,msg:'XSS attempt detected',severity:2"
+            - SecRule ARGS "@contains <script" "id:300100,phase:2,t:lowercase,deny,log,severity:4,status:400,msg:'XSS attempt detected'"
+            - SecRule REQUEST_METHOD "@streq POST" "id:200150,phase:2,t:none,deny,log,severity:4,status:400,msg:'Blocked POST containing script tag',chain"
+            - SecRule REQUEST_URI "@endsWith .php" "t:none"
+            - SecRule REQUEST_BODY "@rx (?i)<\s*script\b[^>]*>.*?<\s*/\s*script\s*>" "t:urlDecodeUni,t:lowercase"
             # -- SQL injection detection
-            - SecRule ARGS "@pm union select delete from drop table insert into" "id:200101,phase:2,t:lowercase,log,deny,status:403,msg:'SQL injection attempt detected',severity:2"
+            - SecRule ARGS "@pm union select from drop table insert into" "id:300200,phase:2,t:lowercase,log,deny,severity:4,status:400,msg:'SQL injection attempt detected'"
