@@ -1,6 +1,5 @@
 # traefik Middlewares for HTTP routes
 # - More information: https://community.traefik.io/t/middleware-does-not-exist-but-it-is-defined/19253/8
-
 http:
   middlewares:
 
@@ -18,12 +17,23 @@ http:
 
     # Add security headers
     # - Use with: securityheaders-add@file
-    # - Documentation: https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/contenttype/
+    # - Documentation: https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/headers/
     securityheaders-add:
       headers:
         frameDeny: true
         browserXssFilter: true
         contentTypeNosniff: true
+        accessControlMaxAge: 100
+        addVaryHeader: true
+        customFrameOptionsValue: SAMEORIGIN
+        customResponseHeaders:
+          Access-Control-Allow-Origin: "*"
+          Sec-Fetch-Site: cross-site
+        referrerPolicy: "strict-origin-when-cross-origin"
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
 
     # Rate limiting
     # - Use with: rate-limit@file
@@ -43,6 +53,7 @@ http:
         sourceRange:
           # IPv4 - HOST
           - "127.0.0.1/32"  # localhost
+          - "192.168.0.0/12" # local IPs (192.168.)
           - "172.16.0.0/12" # Docker bridge networks (172.16-172.31)
           # IPv6 - HOST
           - "::1/128"       # localhost
@@ -55,42 +66,127 @@ http:
       plugin:
         coraza:
           directives:
-            # Basic WAF Configuration
+            # Basic WAF Configuration (Optimized Order)
+
+            # 1. Core Engine Settings (MUST come first)
             - SecRuleEngine On
-            # -- Persistent Data Storage
+
+            # DEBUGGING : Disable on Production or use only for investigating issues
+            # LogLevel Default = 3 | 9 : being the highest level of logging
+            #- SecDebugLogLevel 3
+            - SecDebugLog /dev/stdout
+            #- SecDebugLog /var/log/debug.log // ! Fails to load coraza-waf Plugin
+
+            # 2. Data Storage (needed before any rules that use persistent storage)
             - SecDataDir /var/lib/coraza/
-            # -- Audit Logging Configuration
-            - SecAuditEngine RelevantOnly
-            - SecAuditLogFormat JSON
-            - SecAuditLogType Serial
-            - SecAuditLogParts ABIJDEFHZ
-            - SecAuditLogRelevantStatus "^(?:4|5)\\d{2}$"
-            # -- Request Body rules: Size Limits (DoS Protection) | Max 12.5 MB & 128 KB buffer
-            - SecRequestBodyAccess On
-            - SecRequestBodyLimit 13107200
-            - SecRequestBodyInMemoryLimit 131072
-            - SecRequestBodyLimitAction ProcessPartial
-            # -- Response Body rules (OFF --> has impact on latency & memory)
+            - SecUploadKeepFiles Off              # Don't retain files (saves disk space)
+
+            # 3. Request Body Handling (before audit settings that may log body data)
+            # ! Disabled due to this unresolved issue: https://github.com/jcchavezs/coraza-http-wasm-traefik/issues/8
+            - SecRequestBodyAccess Off
+            #- SecTmpDir /var/lib/coraza/tmp/      # Request body overflow (>5MB), multipart parsing
+            #- SecRequestBodyLimit 52428800        # 50 MB max
+            #- SecRequestBodyInMemoryLimit 5242880 # 5 MB buffer (avoid disk writes for small requests)
+            #- SecRequestBodyLimitAction ProcessPartial
+
+            # 4. Response Body Handling (optional - currently disabled)
+            # Note: Enable only if you need to inspect response bodies (adds latency & memory overhead)
             #- SecResponseBodyAccess Off
             #- SecResponseBodyMimeType text/plain text/html text/xml
-            #- SecResponseBodyLimit 524288
+            #- SecResponseBodyLimit 5242880         # 5 MB
             #- SecResponseBodyLimitAction ProcessPartial
 
-            # Security Rules
-            # -- Prevent URL SQL-Injections and XSS Requests
-            - SecRule MULTIPART_STRICT_ERROR "!@eq 0" "id:200003,phase:2,t:none,log,deny,status:400,msg:'Multipart request body failed strict validation.'"
-            - SecRule ARGS "@contains <script" "id:102,phase:2,t:lowercase,log,deny,status:403,msg:'XSS attempt detected'"
-            - SecRule ARGS "@pm union select delete from drop table insert into" "id:103,phase:2,t:lowercase,log,deny,status:403,msg:'SQL injection attempt detected'"
-            # -- Request Body Parsers (API Security)
-            - SecRule REQUEST_HEADERS:Content-Type "^(?:application(?:/soap\+|/)|text/)xml" "id:200000,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=XML"
-            - SecRule REQUEST_HEADERS:Content-Type "^application/json" "id:200001,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=JSON"
-            - SecRule REQUEST_HEADERS:Content-Type "^application/[a-z0-9.-]+[+]json" "id:200006,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=JSON"
-            # -- Request Body Error Handling
-            - SecRule REQBODY_ERROR "!@eq 0" "id:200002,phase:2,t:none,log,deny,status:400,msg:'Failed to parse request body.',logdata:'%{reqbody_error_msg}',severity:2"
+            # 5. Audit Logging (should come after body settings to properly log configured data)
+            - SecAuditEngine RelevantOnly
+            - SecAuditLog /dev/stdout
+            #- SecAuditLog /var/log/coraza/audit.log // ! Fails to load coraza-waf Plugin
+            - SecAuditLogRelevantStatus "^(?:4|5)\\d{2}$"
+            - SecAuditLogParts ABIJDEFHZ
+            - SecAuditLogType Serial
+            #- SecAuditLogFormat Native
+            - SecAuditLogFormat JSON
 
-            # Whitelist Rules
-            - SecRule REQUEST_URI "@rx \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$" "id:104,phase:1,pass,nolog"
-            # -- Restrict file types to specific locations only
-            #- SecRule REQUEST_URI "@rx ^/(assets|static|images|css|js|fonts)/.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$" "id:104,phase:1,pass,nolog,msg:'Allow static assets'"
-            # -- Allow any incoming cookies (any name/value) & Allow any Set-Cookie on http responses
-            - SecRule REQUEST_COOKIES|REQUEST_COOKIES_NAMES "." "id:901100,phase:1,pass,nolog"
+            # 8. Collection Timeout (for IP reputation, rate limiting, etc.)
+            - SecCollectionTimeout 300  # 5 minutes
+
+            # 9. Argument Separator (for proper parsing of query strings)
+            - SecArgumentSeparator &
+
+            # OWASP Security Rules
+            # [ How Rule IDs Affect Processing ]
+            #  - Uniqueness: IDs must be unique
+            #  - Processing Order: Rules are processed in the order they appear in the configuration, NOT by ID number
+            #  - Convention: IDs are typically used for organizational purposes and to follow CRS (Core Rule Set) conventions:
+            #   1-99,999: Reserved for local custom rules
+            #   100,000-199,999: Internal/initialization rules
+            #   200,000-299,999: Protocol validation and anomaly scoring
+            #   900,000-999,999: Initialization, whitelist, and housekeeping rules
+            #
+            #  Conclusion:
+            #  -> Body parsers (200000-200002) must run in phase 1 before the body is needed
+            #  -> Whitelists (900xxx) should run early to skip unnecessary processing
+            #  -> Protocol validation (200010-200011) should run before attack detection
+            #  -> Attack rules (200100+) run last in phase 2
+
+            # (0) Initialization & Whitelist Rules (Phase 1)
+            # -- Allow any incoming cookies (any name/value)
+            - SecRule REQUEST_COOKIES|REQUEST_COOKIES_NAMES "." "id:90000,phase:1,pass,nolog,msg:'Allow all cookies'"
+            # -- Whitelist: Skip body inspection for static assets
+            - SecRule REQUEST_URI "@rx \.(css|js|map|png|jpg|jpeg|gif|ico|svg|webp|avif|bmp|tiff|mp4|webm|ogg|mp3|wav|woff|woff2|ttf|eot|txt|pdf|br|gz|zip)$" "id:900110,phase:1,t:lowercase,pass,nolog,ctl:requestBodyAccess=Off,msg:'Skip body processing for static files'"
+
+            # (1) Request Body Parsers (Phase 1 - Protocol Enforcement)
+            # -- XML content type detection
+            - SecRule REQUEST_HEADERS:Content-Type "^(?:application(?:/soap\+|/)|text/)xml" "id:200000,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=XML,msg:'Enable XML body parser'"
+            # -- JSON content type detection (standard)
+            - SecRule REQUEST_HEADERS:Content-Type "^application/json" "id:200001,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=JSON,msg:'Enable JSON body parser'"
+            # -- JSON content type detection (vendor-specific)
+            - SecRule REQUEST_HEADERS:Content-Type "^application/[a-z0-9.-]+[+]json" "id:200002,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=JSON,msg:'Enable JSON body parser for vendor types'"
+
+            # START BOTS=============================================================
+            # -=[ Block Common Bots / Malicious-Crawlers ]=-
+            #            (phase:1, no logging)
+            # -----------------------------------------------------------------------
+            # -- cgi-bin requests
+            - SecRule REQUEST_URI "@rx (?i)/cgi-bin/" "id:400100,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'CGI-BIN access attempt blocked'"
+            # -- Shell script files (.sh)
+            - SecRule REQUEST_URI "@rx (?i)\\.sh($|\\?)" "id:400200,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'Shell script access attempt blocked'"
+            # -- JSP files
+            - SecRule REQUEST_URI "@rx (?i)\\.jsp($|\\?)" "id:400300,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'JSP file access attempt blocked'"
+            # -- ASP/ASPX files
+            - SecRule REQUEST_URI "@rx (?i)\\.aspx?($|\\?)" "id:400400,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'ASP/ASPX file access attempt blocked'"
+            # -- Additional common exploit paths
+            - SecRule REQUEST_URI "@rx (?i)(/phpmyadmin|/phpMyAdmin|/pma|/mysql|/myadmin|/db|/database)" "id:400500,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'Database admin access attempt blocked'"
+            # -- .env and other config files
+            - SecRule REQUEST_URI "@rx (?i)\\.(env|git|svn|htaccess|htpasswd|ini|log|bak|backup|old|sql)($|\\?)" "id:400600,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'Sensitive file access attempt blocked'"
+            # -- PHP files in common exploit/admin paths ONLY
+            # Note: This is a chained rule pair. The first rule is the rule id for the whole chain.
+            - SecRule REQUEST_URI "@rx (?i)\\.(php|phtml|php3|php4|php5|phps)($|\\?)" "id:400900,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'PHP file access attempt blocked in exploit path',chain"
+            - SecRule REQUEST_URI "@rx (?i)(admin|config|setup|install|test|backup|shell|upload|wp-admin|wp-login|xmlrpc)" "t:none,t:urlDecodeUni,t:lowercase"
+            # -- WordPress-related requests
+            - SecRule REQUEST_URI "@rx (?i)(/wp-|/wordpress|wp-content|wp-includes|wp-admin|wp-login|xmlrpc\.php|wp-config)" "id:400910,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'WordPress access attempt blocked'"
+            # -- Common CMS/framework paths
+            - SecRule REQUEST_URI "@rx (?i)(/drupal|/joomla|/magento|/typo3|/laravel|/codeigniter|/symfony)" "id:400920,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'CMS Framework access attempt blocked'"
+            # -- Common admin panels
+            - SecRule REQUEST_URI "@rx (?i)(/admin|/administrator|/manager|/webadmin|/controlpanel|/cpanel)" "id:400930,phase:1,deny,status:404,nolog,t:none,t:urlDecodeUni,t:lowercase,msg:'Admin panel access attempt blocked'"
+            # END BOTS===============================================================
+
+            # START CUSTOM WHITELISTING==============================================
+            #      <!> Whitelists should run early (phase:1, before body parsing)
+            # -----------------------------------------------------------------------
+	    # Add custom rules below vvv | Use id:99000 - id:99999
+	    # END CUSTOM WHITELISTING================================================
+
+            # (2) Protocol Validation (Phase 2)
+            # -- Request body parsing errors
+            - SecRule REQBODY_ERROR "!@eq 0" "id:200010,phase:2,t:none,deny,log,severity:5,status:400,logdata:'%{reqbody_error_msg}',msg:'Failed to parse request body'"
+            # -- Multipart validation
+            - SecRule MULTIPART_STRICT_ERROR "!@eq 0" "id:200020,phase:2,t:none,deny,log,severity:5,status:400,msg:'Multipart request body failed strict validation'"
+
+            # (3) Attack Detection (Phase 2)
+            # -- XSS detection
+            - SecRule ARGS "@contains <script" "id:300100,phase:2,t:lowercase,deny,log,severity:4,status:400,msg:'XSS attempt detected'"
+            - SecRule REQUEST_METHOD "@streq POST" "id:200150,phase:2,t:none,deny,log,severity:4,status:400,msg:'Blocked POST containing script tag',chain"
+            - SecRule REQUEST_URI "@endsWith .php" "t:none"
+            - SecRule REQUEST_BODY "@rx (?i)<\s*script\b[^>]*>.*?<\s*/\s*script\s*>" "t:urlDecodeUni,t:lowercase"
+            # -- SQL injection detection
+            - SecRule ARGS "@pm union select from drop table insert into" "id:300200,phase:2,t:lowercase,log,deny,severity:4,status:400,msg:'SQL injection attempt detected'"

@@ -26,9 +26,9 @@
 # Overwrites the default docker-mailserver postfix `main.cf` settings
 # - Docu: https://docker-mailserver.github.io/docker-mailserver/latest/config/advanced/override-defaults/postfix/
 
-# Outbound SMTP Port (must be unblocked by the Host). It's :25 or :425
+# Outbound SMTP Port (must be unblocked by the Host). It's :25 or :465
 #smtp_tcp_port = 25
-smtp_tcp_port = 425
+smtp_tcp_port = 465
 
 # Ensure the Docker Gateway IP(-range) is in the allowed ranges
 # Reason: Host OS sent the mail via Docker's gateway, not directly from localhost

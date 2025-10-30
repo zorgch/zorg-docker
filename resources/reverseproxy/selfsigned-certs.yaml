@@ -1,15 +1,16 @@
 # traefik Custom TLS certs (mapped from sslcerts-files)
 # - Documentation: https://doc.traefik.io/traefik/reference/routing-configuration/http/tls/tls-certificates/#default-certificate
+tls:
+  # Custom User defined certificates to use by traefik (also Fallback to Letsencrypt)
+  certificates:
+    - certFile: /certs/fullchain.cert
+      keyFile: /certs/privkey.key
+      stores:
+        - default
 
-#tls:
-  # Custom User defined certificates to use by traefik
-  #certificates:
-  #  - certFile: /certs/fullchain.cert
-  #    keyFile: /certs/privkey.key
-
-  #stores:
-    #default:
+  stores:
+    default:
       # traefik can use a default certificate for connections without a SNI, or without a matching domain
-      #defaultCertificate:
-        #certFile: /certs/fullchain.cert
-        #keyFile: /certs/privkey.key
+      defaultCertificate:
+        certFile: /certs/fullchain.cert
+        keyFile: /certs/privkey.key
