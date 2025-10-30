@@ -82,10 +82,12 @@ http:
             - SecUploadKeepFiles Off              # Don't retain files (saves disk space)
 
             # 3. Request Body Handling (before audit settings that may log body data)
-            - SecRequestBodyAccess On
-            - SecRequestBodyLimit 52428800        # 50 MB max
-            - SecRequestBodyInMemoryLimit 5242880 # 5 MB buffer (avoid disk writes for small requests)
-            - SecRequestBodyLimitAction ProcessPartial
+            # ! Disabled due to this unresolved issue: https://github.com/jcchavezs/coraza-http-wasm-traefik/issues/8
+            - SecRequestBodyAccess Off
+            #- SecTmpDir /var/lib/coraza/tmp/      # Request body overflow (>5MB), multipart parsing
+            #- SecRequestBodyLimit 52428800        # 50 MB max
+            #- SecRequestBodyInMemoryLimit 5242880 # 5 MB buffer (avoid disk writes for small requests)
+            #- SecRequestBodyLimitAction ProcessPartial
 
             # 4. Response Body Handling (optional - currently disabled)
             # Note: Enable only if you need to inspect response bodies (adds latency & memory overhead)
@@ -128,14 +130,13 @@ http:
 
             # (0) Initialization & Whitelist Rules (Phase 1)
             # -- Allow any incoming cookies (any name/value)
-            - SecRule REQUEST_COOKIES|REQUEST_COOKIES_NAMES "." "id:900100,phase:1,pass,nolog,msg:'Allow all cookies'"
+            - SecRule REQUEST_COOKIES|REQUEST_COOKIES_NAMES "." "id:90000,phase:1,pass,nolog,msg:'Allow all cookies'"
             # -- Whitelist: Skip body inspection for static assets
             - SecRule REQUEST_URI "@rx \.(css|js|map|png|jpg|jpeg|gif|ico|svg|webp|avif|bmp|tiff|mp4|webm|ogg|mp3|wav|woff|woff2|ttf|eot|txt|pdf|br|gz|zip)$" "id:900110,phase:1,t:lowercase,pass,nolog,ctl:requestBodyAccess=Off,msg:'Skip body processing for static files'"
 
             # (1) Request Body Parsers (Phase 1 - Protocol Enforcement)
             # -- XML content type detection
             - SecRule REQUEST_HEADERS:Content-Type "^(?:application(?:/soap\+|/)|text/)xml" "id:200000,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=XML,msg:'Enable XML body parser'"
-
             # -- JSON content type detection (standard)
             - SecRule REQUEST_HEADERS:Content-Type "^application/json" "id:200001,phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=JSON,msg:'Enable JSON body parser'"
             # -- JSON content type detection (vendor-specific)
