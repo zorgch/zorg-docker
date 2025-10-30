@@ -70,9 +70,14 @@ http:
             # 1. Core Engine Settings (MUST come first)
             - SecRuleEngine On
 
+            # DEBUGGING : Disable on Production or use only for investigating issues
+            # LogLevel Default = 3 | 9 : being the highest level of logging
+            #- SecDebugLogLevel 3
+            - SecDebugLog /dev/stdout
+            #- SecDebugLog /var/log/debug.log // ! Fails to load coraza-waf Plugin
+
             # 2. Data Storage (needed before any rules that use persistent storage)
             - SecDataDir /var/lib/coraza/
-            - SecTmpDir /var/lib/coraza/tmp/      # Request body overflow (>5MB), multipart parsing
             - SecUploadKeepFiles Off              # Don't retain files (saves disk space)
 
             # 3. Request Body Handling (before audit settings that may log body data)
@@ -85,16 +90,18 @@ http:
             # Note: Enable only if you need to inspect response bodies (adds latency & memory overhead)
             #- SecResponseBodyAccess Off
             #- SecResponseBodyMimeType text/plain text/html text/xml
-            #- SecResponseBodyLimit 524288         # 512 KB
+            #- SecResponseBodyLimit 5242880         # 5 MB
             #- SecResponseBodyLimitAction ProcessPartial
 
             # 5. Audit Logging (should come after body settings to properly log configured data)
             - SecAuditEngine RelevantOnly
-            - SecAuditLogType Serial
-            - SecAuditLogFormat JSON
-            - SecAuditLog /var/log/coraza/audit.log
-            - SecAuditLogParts ABIJDEFHZ
+            - SecAuditLog /dev/stdout
+            #- SecAuditLog /var/log/coraza/audit.log // ! Fails to load coraza-waf Plugin
             - SecAuditLogRelevantStatus "^(?:4|5)\\d{2}$"
+            - SecAuditLogParts ABIJDEFHZ
+            - SecAuditLogType Serial
+            #- SecAuditLogFormat Native
+            - SecAuditLogFormat JSON
 
             # 8. Collection Timeout (for IP reputation, rate limiting, etc.)
             - SecCollectionTimeout 300  # 5 minutes

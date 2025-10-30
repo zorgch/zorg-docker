@@ -217,7 +217,9 @@ services:
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - sslcerts-files:/certs:rw # :rw = read+write (explicit)
+            # -=[ Configs ]=-
             - "${HOST_PATH_REVERSEPROXY_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/reverseproxy}:/config:ro" # :ro = read-only
+            - "${HOST_PATH_REVERSEPROXY_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/reverseproxy}/coraza-data:/var/lib/coraza"
             # -=[ Logs ]=-
             - "${HOST_PATH_LOGS:-./logs}/reverseproxy-owasp:/var/log/coraza"
 
