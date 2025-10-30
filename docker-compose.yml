@@ -71,7 +71,7 @@ services:
             - ONLY_WHITELIST=true
             - TELEGRAM_NOTIFIER_BOT_TOKEN=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:-}
             - TELEGRAM_NOTIFIER_CHAT_ID=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}
-            - ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:+TELEGRAM_NOTIFIER_TOPIC_ID=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID}}
+            - TELEGRAM_NOTIFIER_TOPIC_ID=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock:ro
             - "${HOST_PATH_TELEGRAM_STATUSMESSAGES_CONFIG:-${HOST_DOCKER_WORKING_DIR}/resources/telegram-notifier/messages.js}:/usr/src/app/templates.js:ro"
@@ -85,8 +85,6 @@ services:
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}dashboard
         restart: on-failure:1
-        depends_on:
-            - servicealerts
         cpus: "${REVERSEPROXY_CPU:-0.5}"
         mem_limit: "${REVERSEPROXY_MEMORY:-512m}"
         security_opt:
@@ -399,7 +397,8 @@ services:
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}adminer
         restart: on-failure:1
         depends_on:
-            - db
+            db:
+                condition: service_healthy
         cpus: "${REVERSEPROXY_CPU:-0.5}"
         mem_limit: "${REVERSEPROXY_MEMORY:-512m}"
         #security_opt: # ⚠️ Do NOT limit for adminer to work!
