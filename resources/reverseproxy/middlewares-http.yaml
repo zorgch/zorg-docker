@@ -173,8 +173,8 @@ http:
             # START CUSTOM WHITELISTING==============================================
             #      <!> Whitelists should run early (phase:1, before body parsing)
             # -----------------------------------------------------------------------
-	    # Add custom rules below vvv | Use id:99000 - id:99999
-	    # END CUSTOM WHITELISTING================================================
+            # Add custom rules below vvv | Use id:99000 - id:99999
+            # END CUSTOM WHITELISTING================================================
 
             # (2) Protocol Validation (Phase 2)
             # -- Request body parsing errors
@@ -185,8 +185,9 @@ http:
             # (3) Attack Detection (Phase 2)
             # -- XSS detection
             - SecRule ARGS "@contains <script" "id:300100,phase:2,t:lowercase,deny,log,severity:4,status:400,msg:'XSS attempt detected'"
+            # -- Block <script>-Tags in POST request bodies
             - SecRule REQUEST_METHOD "@streq POST" "id:200150,phase:2,t:none,deny,log,severity:4,status:400,msg:'Blocked POST containing script tag',chain"
-            - SecRule REQUEST_URI "@endsWith .php" "t:none"
-            - SecRule REQUEST_BODY "@rx (?i)<\s*script\b[^>]*>.*?<\s*/\s*script\s*>" "t:urlDecodeUni,t:lowercase"
+            - SecRule REQUEST_URI "@endsWith .php" "t:none,chain"
+            - SecRule REQUEST_BODY "@rx (?i)<script[\s/>]" "t:urlDecodeUni,t:htmlEntityDecode,t:lowercase"
             # -- SQL injection detection
             - SecRule ARGS "@pm union select from drop table insert into" "id:300200,phase:2,t:lowercase,log,deny,severity:4,status:400,msg:'SQL injection attempt detected'"

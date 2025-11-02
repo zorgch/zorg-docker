@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -x
 
 ########## Print GNU GPLv3 LICENSE notices ##########
 echo '
@@ -10,7 +10,7 @@ echo '
    ███    ██    ██ ██     ██   ███     ██    ██ ██  ██ ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
   ███████  ██████  ██      ██████       ██████  ██   ████     ██████   ██████   ██████ ██   ██ ███████ ██   ██
 Portable, Server independent, Docker-based code to get the zorg Websites and Services up, running, and hosted.
-Copyright (C) 2024  zorg Verein <https://github.com/zorgch>
+Copyright (C) 2024-2025  zorg Verein <https://github.com/zorgch>
 
   This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
