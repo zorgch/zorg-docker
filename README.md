@@ -375,6 +375,21 @@ cd /srv/<my-website>/<host>/zorg-docker
 git pull --rebase
 ```
 
+> [!IMPORTANT]
+> Check the updated Files and apply necessary changes to outdated manual copies of the same!
+
+- Example:
+
+```bash
+Fast-forward
+ .env.example                                 |  17 +++++--------
+ docker-compose.yml                           |  75 ++++++++++++++++++++++++++++++++++++-------------------
+ resources/irc/unrealircd/unrealircd.conf     |  12 ++++-----
+ resources/mailserver/postfix-main.cf         |   4 +--
+ resources/reverseproxy/middlewares-http.yaml | 166 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--------------------------
+ resources/reverseproxy/selfsigned-certs.yaml |  23 ++++++++---------
+ 6 files changed, 207 insertions(+), 90 deletions(-)
+```
 
 <br><br>
 
@@ -646,7 +661,7 @@ mysqldump -h <db.host.domain> -P 3306 -u MYSQL_USER -p MYSQL_DATABASE > /path/to
 
 ## ⚖️ License
 
-> Copyright (C) 2024  zorg Verein <https://github.com/zorgch>
+> Copyright (C) 2024-2025  zorg Verein <https://github.com/zorgch>
 >
 >   This program is free software: you can redistribute it and/or modify
 > it under the terms of the GNU General Public License as published by

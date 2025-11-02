@@ -9,7 +9,7 @@ echo '
    ███    ██    ██ ██     ██   ███     ██    ██ ██  ██ ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
   ███████  ██████  ██      ██████       ██████  ██   ████     ██████   ██████   ██████ ██   ██ ███████ ██   ██
 Portable, Server independent, Docker-based code to get the zorg Websites and Services up, running, and hosted.
-Copyright (C) 2024  zorg Verein <https://github.com/zorgch>
+Copyright (C) 2024-2025  zorg Verein <https://github.com/zorgch>
 
   This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -38,16 +38,8 @@ if [ $# -lt 1 ]; then
     exit 1
 fi
 
-BACKUP_DIR="$1"
-# Remove trailing slash if present
-BACKUP_DIR="${BACKUP_DIR%/}"
-ENV_FILE="$2"
-
-if [ ! -d "$BACKUP_DIR" ]; then
-    mkdir -p "$BACKUP_DIR"
-fi
-
 # If ENV_FILE not provided, try ./.env
+ENV_FILE="$2"
 if [ -z "$ENV_FILE" ]; then
     if [ -f "./.env" ]; then
         ENV_FILE="./.env"
@@ -58,6 +50,14 @@ if [ -z "$ENV_FILE" ]; then
 elif [ ! -f "$ENV_FILE" ]; then
     echo "Error: .env file not found at $ENV_FILE"
     exit 1
+fi
+
+# Assign backup directory & try to create it if missing
+# Remove trailing slash, if present
+BACKUP_DIR="$1"
+BACKUP_DIR="${BACKUP_DIR%/}"
+if [ ! -d "$BACKUP_DIR" ]; then
+    mkdir -p "$BACKUP_DIR"
 fi
 
 
@@ -139,15 +139,14 @@ if ! DOCKER_ERROR=$( { docker exec -i "$CONTAINER" mariadb-dump \
   --user="$DB_USER" "$MYSQLDUMP_PW_PARAM" \
   --no-tablespaces \
   --databases "$DB_NAME" > "$OUTFILE"; } 2>&1 ); then
-        # Failed - use captured error
-        MESSAGE_ERROR="${MESSAGE_ERRBACKUP}
+    # Failed - use captured error
+    MESSAGE_ERROR="${MESSAGE_ERRBACKUP}
 > ${DOCKER_ERROR}"
-        send_telegram_message "$MESSAGE_ERROR"
-        exit 1
-else
-    # Successful
-    send_telegram_message "$MESSAGE_BACKUP"
+    send_telegram_message "$MESSAGE_ERROR"
+    exit 1
 fi
+# Successful run (no exit)
+send_telegram_message "$MESSAGE_BACKUP"
 
 
 #### Remove old backups (>1 year) ####

@@ -4,7 +4,7 @@
 #    ███    ██    ██ ██     ██   ███     ██    ██ ██  ██ ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
 #   ███████  ██████  ██      ██████       ██████  ██   ████     ██████   ██████   ██████ ██   ██ ███████ ██   ██
 # Portable, Server independent, Docker-based code to get the zorg Websites and Services up, running, and hosted.
-# Copyright (C) 2024  zorg Verein <https://github.com/zorgch>
+# Copyright (C) 2024-2025  zorg Verein <https://github.com/zorgch>
 #
 #   This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -99,7 +99,7 @@ services:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:+telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID}}
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${DASHBOARD_HOST:+https://${DASHBOARD_HOST}.${DOMAINNAME}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
@@ -155,7 +155,7 @@ services:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:+telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID}}
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - ${REVERSEPROXY_DASHBOARD:+telegram-notifier.service-uri=https://${DOMAINNAME}:8080}
             # -=[ traefik Reverse Proxy : routing CONDITIONAL ]=-
             - "traefik.enable=${REVERSEPROXY_DASHBOARD:-false}"
@@ -252,8 +252,8 @@ services:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:+telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID}}
-            - "telegram-notifier.service-uri=${DOMAINNAME:+https://${DOMAINNAME}}:${HTTPS_PORT:-443}}"
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
+            - "telegram-notifier.service-uri=${DOMAINNAME:+https://${DOMAINNAME}:${HTTPS_PORT:-443}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
             - "traefik.docker.network=${NETWORK_HTTP_SERVICES:-loadbalance-http}"
@@ -270,7 +270,7 @@ services:
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.entryPoints=websecure"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.rule=Host(`${DOMAINNAME:-website}`) || Host(`www.${DOMAINNAME:-website}`)"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=${WEBSITE_STRIP_WWW:+strip-www,}owasp-coraza-waf@file,contenttype-add@file,compress-gzip@file,securityheaders-add@file"
-            # --- Configure Redirect for Secondary Domainname ---
+            # --- (REMOVED) Configure Redirect for Secondary Domainname ---
             # - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls=true}
             # - ${SECONDARY_DOMAINNAME:+${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls.certresolver=letsencrypt}}
             # - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.entryPoints=websecure}
@@ -356,8 +356,8 @@ services:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:+telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID}}
-            - "telegram-notifier.service-uri=localhost:${MARIADB_PORT:-3306}}"
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
+            - "telegram-notifier.service-uri=localhost:${MARIADB_PORT:-3306}"
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             - "traefik.enable=false"
         environment:
@@ -412,7 +412,7 @@ services:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:+telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID}}
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${DBMANAGER_HOST:+https://${DBMANAGER_HOST}.${DOMAINNAME}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
@@ -463,7 +463,7 @@ services:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:+telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID}}
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}:${MAILSERVER_PORT_SMTP_SSL:-465}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             # 📖 HOWTO See docker-mailserver.github.io/docker-mailserver/v14.0/examples/tutorials/mailserver-behind-proxy/
@@ -559,7 +559,7 @@ services:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:+telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID}}
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${IRC_HOST:+irc://${IRC_HOST}.${DOMAINNAME}:${IRC_PORT:-6667}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
@@ -622,7 +622,7 @@ services:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:+telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID}}
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=/join #quiz"
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             - "traefik.enable=false"
@@ -661,7 +661,7 @@ services:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:+telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID}}
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - ${STOCKTICKER_SYMBOLS:+telegram-notifier.service-uri=Symbols ${STOCKTICKER_SYMBOLS:-}}
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             - "traefik.enable=false"
@@ -707,7 +707,7 @@ services:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:+telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID}}
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${KEEPASS_HOST:+sftp -P ${KEEPASS_PORT_SFTP:-2222} ${KEEPASS_SFTP_USER}@${KEEPASS_HOST}.${DOMAINNAME}}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
@@ -754,7 +754,7 @@ services:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
-            - ${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:+telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID}}
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${QUAKE3_HOST:+/connect ${QUAKE3_HOST}.${DOMAINNAME}:${QUAKE3_PORT:-27960}}"
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             # ℹ️ Not using traefik, because: «There must be one (and only one!) UDP service referenced per UDP router!»
