@@ -543,7 +543,6 @@ services:
         hostname: ${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}
         networks:
             - information-superhighway
-            - clown-protocol
         expose:
             - "6667/tcp" # ℹ️ Unencrypted default IRC Port
             - "6697/tcp" # ℹ️ SSL/TLS encrypted IRC Port
@@ -617,7 +616,7 @@ services:
         security_opt:
             - "no-new-privileges:true"
         networks:
-            - clown-protocol
+            - information-superhighway
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
@@ -629,6 +628,10 @@ services:
         environment:
             - TZ=${TIMEZONE:-Europe/Zurich}
             - DEBIAN_FRONTEND=noninteractive
+            - IRC_SERVER=${IRC_QUIZBOT_SERVER}
+            - IRC_SERVER_PORT=${IRC_QUIZBOT_PORT}
+            - CHANNEL=${IRC_QUIZBOT_JOIN:-quiz}
+            - NICKNAME=${IRC_QUIZBOT_NICKNAME:-quizhans}
             - NICKSERV_PASSWORD=${IRC_QUIZBOT_PASSWORD:-false}
             - BOTMASTERS=${IRC_QUIZBOT_ADMINS:-nickname,barbara}
             - VERBOSE=${IRC_QUIZBOT_DEBUG:-false}
@@ -793,9 +796,6 @@ services:
 #==============================
 networks:
     zion-mainframe:
-        internal: true
-        driver: bridge
-    clown-protocol:
         internal: true
         driver: bridge
     the-grid:
