@@ -53,7 +53,7 @@ else
 fi
 
 
-########## If available: use custom quizbot config files ##########
+###### (If available) Use mapped custom config file overrides #######
 if [ -f "/home/q/config.py" ]; then
   cp -f /home/q/config.py $APP_DIR/config.py
 fi
