@@ -628,8 +628,8 @@ services:
         environment:
             - TZ=${TIMEZONE:-Europe/Zurich}
             - DEBIAN_FRONTEND=noninteractive
-            - IRC_SERVER=${IRC_QUIZBOT_SERVER}
-            - IRC_SERVER_PORT=${IRC_QUIZBOT_PORT}
+            - IRC_SERVER=${IRC_QUIZBOT_SERVER:-${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}}
+            - IRC_SERVER_PORT=${IRC_QUIZBOT_PORT:-${$IRC_PORT}}
             - CHANNEL=${IRC_QUIZBOT_JOIN:-quiz}
             - NICKNAME=${IRC_QUIZBOT_NICKNAME:-quizhans}
             - NICKSERV_PASSWORD=${IRC_QUIZBOT_PASSWORD:-false}
@@ -640,13 +640,78 @@ services:
             - "${HOST_DOCKER_WORKING_DIR:-.}/resources/python/irc-quizbot/service-setup.sh:/usr/local/bin/setup.sh"
             - "${HOST_PATH_IRC_QUIZBOT_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/python/irc-quizbot/configs}:/home/q:ro"
 
+    # --- 🕊️ Messaging Bridge between Telegram+IRC ---
+    irc-telegram-bridge:
+        profiles: [ "all", "irc" ]
+        image: bhavin192/teleirc:v2.2.0 #❤️‍🔥 WORKS BEEEST !!
+        platform: linux/amd64 # ℹ️ Has no arm64 support
+        container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irctelegrambridge
+        restart: on-failure
+        depends_on:
+            irc:
+                condition: service_healthy
+        cpus: "${MICROSERVICE_CPU:-0.2}"
+        mem_limit: "${MICROSERVICE_MEMORY:-128m}"
+        security_opt:
+            - "no-new-privileges:true"
+        networks:
+            - information-superhighway
+        labels:
+            # -=[ traefik Reverse Proxy : routing OFF ]=-
+            - "traefik.enable=false"
+        environment:
+            # 📖 HOWTO https://docs.teleirc.com/en/latest/user/config-file-glossary/
+            # -=[ IRC-side Settings ]=-
+            - IRC_SERVER=${IRC2TG_IRC_SERVER:-${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}}
+            - IRC_PORT=${IRC2TG_IRC_PORT:-${IRC_PORT}}
+            - IRC_USE_SSL=${IRC2TG_IRC_USE_SSL:-false}
+            - IRC_CERT_ALLOW_SELFSIGNED=true
+            - IRC_CERT_ALLOW_EXPIRED=false
+            - IRC_SERVER_PASSWORD=${IRC2TG_IRC_PASSWORD:-}
+            - IRC_CHANNEL=${IRC2TG_IRC_JOIN:-}
+            - IRC_CHANNEL_KEY=${IRC2TG_IRC_JOIN_PASSWORD:-}
+            - IRC_BOT_NAME=${IRC2TG_IRC_NICKNAME:-teleirc}
+            - IRC_BOT_IDENT=irc-telegram-bridge
+            - IRC_BOT_REALNAME=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irctelegrambridge
+            - IRC_NICKSERV_SERVICE=NickServ
+            - IRC_NICKSERV_USER=${IRC2TG_IRC_NICKSERV_USER:-}
+            - IRC_NICKSERV_PASS=${IRC2TG_IRC_NICKSERV_PASS:-}
+            - IRC_BLACKLIST=${IRC2TG_IRC_IGNORE_NICKS:-}
+            - TELEGRAM_MESSAGE_PREFIX=${IRC2TG_IRC_MESSAGE_PREFIX:-}
+            - TELEGRAM_MESSAGE_SUFFIX=${IRC2TG_IRC_MESSAGE_SUFFIX:-}
+            - IRC_MAX_MESSAGE_LENGTH=512
+            - IRC_NO_FORWARD_PREFIX=${IRC2TG_MESSAGE_MUTE_PREFIX:-!}
+            - IRC_QUIT_MESSAGE=${IRC2TG_IRC_MESSAGE_QUIT:-}
+            - IRC_SEND_DOCUMENT=false
+            - IRC_SEND_STICKER_EMOJI=false
+            - IRC_SHOW_LOCATION_MESSAGE=false
+            - IRC_SHOW_JOIN_MESSAGE=false
+            - IRC_SHOW_LEAVE_MESSAGE=false
+            # -=[ Telegram-side Settings ]=-
+            - TELEIRC_TOKEN=${IRC2TG_TELEGRAM_BOT_TOKEN:-}
+            - TELEGRAM_CHAT_ID=${IRC2TG_TELEGRAM_BOT_CHATID:-}
+            - MAX_MESSAGE_PER_MINUTE=20
+            - SHOW_DISCONNECT_MESSAGE=true
+            - TELEGRAM_MESSAGE_REPLY_LENGTH=55
+            - TELEGRAM_MESSAGE_REPLY_PREFIX=${IRC2TG_TG_MESSAGE_REPLY_PREFIX:-}
+            - TELEGRAM_MESSAGE_REPLY_SUFFIX=${IRC2TG_TG_MESSAGE_REPLY_SUFFIX:-}
+            - IRC_PREFIX=${IRC2TG_TG_MESSAGE_PREFIX:-}
+            - IRC_SUFFIX=${IRC2TG_TG_MESSAGE_SUFFIX:-}
+            - IRC_EDITED_PREFIX=${IRC2TG_TG_MESSAGE_EDITED:-}
+            - SHOW_ACTION_MESSAGE=${IRC2TG_TG_SHOW_IRC_ACTION:-}
+            - SHOW_JOIN_MESSAGE=${IRC2TG_TG_SHOW_IRC_JOINS:-}
+            - SHOW_KICK_MESSAGE=${IRC2TG_TG_SHOW_IRC_KICKS:-}
+            - SHOW_LEAVE_MESSAGE=${IRC2TG_TG_SHOW_IRC_LEAVES:-}
+            - SHOW_NICK_MESSAGE=${IRC2TG_TG_SHOW_IRC_NICK_CHANGE:-}
+            - SHOW_TOPIC_MESSAGE=${IRC2TG_TG_SHOW_IRC_TOPIC_CHANGE:-}
+
     # --- 📈 Stockticker ---
     stockticker:
         profiles: [ "all" ]
         image: python:3.12-slim
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}stockticker
-        restart: on-failure:1
+        restart: on-failure
         cpus: "${MICROSERVICE_CPU:-0.2}"
         mem_limit: "${MICROSERVICE_MEMORY:-128m}"
         memswap_limit: 512mb
@@ -763,7 +828,7 @@ services:
             # ℹ️ Not using traefik, because: «There must be one (and only one!) UDP service referenced per UDP router!»
             - "traefik.enable=false"
         tty: true
-        # ℹ️ NOTE Without explicitely starting a map ("map q3xx") the quake3-Server will not be ready!
+        # ⚠️ Without explicitely starting a map ("map q3xx") the quake3-Server will NOT be ready!
         command: "+exec server.cfg ${QUAKE3_RCON_PASSWORD:++rconpassword ${QUAKE3_RCON_PASSWORD}}"
         volumes:
             - "${HOST_PATH_LOGS:-./logs}/quake3-server:/home/ioq3srv/.q3a/baseq3/logs"
