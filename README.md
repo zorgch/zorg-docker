@@ -204,6 +204,7 @@ Here's an overview of the underlaying Docker images used for the Docker Services
 | `postfix-smtp`     | `mailserver/docker-mailserver` | [Docs](https://docker-mailserver.github.io/docker-mailserver/) |
 | `irc`              | `c0dy/unrealircd-anope`   | [Docker Hub](https://hub.docker.com/r/c0dy/unrealircd-anope) |
 | `irc-quizbot`      | `python:3.12-slim`        | [GitHub](https://github.com/zorgch/irc-quizbot) |
+| `irc-telegram-bridge` | `bhavin192/teleirc`    | [Docker Hub](https://hub.docker.com/r/bhavin192/teleirc) |
 | `stockticker`      | `python:3.12-slim`        | [GitHub](https://github.com/zorgch/zorg-docker/tree/dev/resources/python/stockticker) |
 | `servicealerts`    | `lorcas/docker-telegram-notifier` | [GitHub](https://github.com/luc-ass/docker-telegram-notifier) |
 | `sftp`             | `atmoz/sftp`              | [Docker Hub](https://hub.docker.com/r/atmoz/sftp/) |
@@ -405,7 +406,7 @@ Fast-forward
 docker compose --profile all up -d
 ```
 
-* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `website`, `db`, `postfix-smtp`, `irc`, `irc-quizbot`, `stockticker`, `sftp`, `quake3`
+* Applicable services: `servicealerts`, `dashboard`, `reverseproxy`, `website`, `db`, `postfix-smtp`, `irc`, `irc-quizbot`, `irc-telegram-bridge`, `stockticker`, `sftp`, `quake3`
 </details>
 
 <details>
@@ -423,7 +424,7 @@ docker compose --profile webserver up -d
 ```bash
 docker compose --profile irc up -d
 ```
-* Applicable services: `servicealerts`, `dashboard`, `irc`, `irc-quizbot`
+* Applicable services: `servicealerts`, `dashboard`, `irc`, `irc-quizbot`, `irc-telegram-bridge`
 </details>
 
 <details>
@@ -479,18 +480,18 @@ Some single services have their own profile, in order to prevent them from start
 > [!TIP]
 > Multiple profiles can be combined: `docker compose --profile webserver --profile irc up -d`
 
-| Profile        | Applicablae Docker Services   | Example Usage                         |
-| -------------- | ----------------------------- | ------------------------------------- |
-| `all`          | All general services          | `--profile all`                       |
-| `setup`        | `sslcerts` `postfix-smtp`     | `--profile setup`                     |
-| `status`       | `servicealerts` `dashboard` `reverseproxy`      | `--profile status`  |
+| Profile        | Applicablae Docker Services          | Example Usage                  |
+| -------------- | ------------------------------------ | -------------------------------|
+| `all`          | All general services                 | `--profile all`                |
+| `setup`        | `sslcerts` `postfix-smtp`            | `--profile setup`              |
+| `status`       | `servicealerts` `dashboard` `reverseproxy` | `--profile status`       |
 | `webserver`    | `servicealerts` `dashboard` `reverseproxy` `website` `db` `db-manager` `postfix-smtp` | `--profile webserver` |
-| `mailserver`   | `servicealerts` `dashboard` `reverseproxy` `postfix-smtp` | `--profile mailserver` |
-| `irc`          | `servicealerts` `dashboard` `irc` `irc-quizbot` | `--profile irc`     |
-| `keepass`      | `servicealerts` `dashboard` `sftp`              | `--profile keepass` |
-| `quake`        | `servicealerts` `dashboard` `quake3`            | `--profile quake`   |
-| `docu`         | `phpdoc`                      | `--profile docu`                      |
-| Single service | e.g. `stockticker`            | `docker compose up -d stockticker`    |
+| `mailserver`   | `servicealerts` `dashboard` `reverseproxy` `postfix-smtp`  | `--profile mailserver` |
+| `irc`          | `servicealerts` `dashboard` `irc` `irc-quizbot` `irc-telegram-bridge` | `--profile irc` |
+| `keepass`      | `servicealerts` `dashboard` `sftp`   | `--profile keepass` |
+| `quake`        | `servicealerts` `dashboard` `quake3` | `--profile quake`   |
+| `docu`         | `phpdoc`                             | `--profile docu`    |
+| Single service | e.g. `stockticker`                   | `docker compose up -d stockticker` |
 
 <br>
 
