@@ -628,8 +628,8 @@ services:
         environment:
             - TZ=${TIMEZONE:-Europe/Zurich}
             - DEBIAN_FRONTEND=noninteractive
-            - IRC_SERVER=${IRC_QUIZBOT_SERVER:-${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}}
-            - IRC_SERVER_PORT=${IRC_QUIZBOT_PORT:-${$IRC_PORT}}
+            - IRC_SERVER=${IRC_QUIZBOT_SERVER:-${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}ircdserver}
+            - IRC_SERVER_PORT=${IRC_QUIZBOT_PORT:-${IRC_PORT:-6667}}
             - CHANNEL=${IRC_QUIZBOT_JOIN:-quiz}
             - NICKNAME=${IRC_QUIZBOT_NICKNAME:-quizhans}
             - NICKSERV_PASSWORD=${IRC_QUIZBOT_PASSWORD:-false}
@@ -662,8 +662,8 @@ services:
         environment:
             # 📖 HOWTO https://docs.teleirc.com/en/latest/user/config-file-glossary/
             # -=[ IRC-side Settings ]=-
-            - IRC_SERVER=${IRC2TG_IRC_SERVER:-${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}}
-            - IRC_PORT=${IRC2TG_IRC_PORT:-${IRC_PORT}}
+            - IRC_SERVER=${IRC2TG_IRC_SERVER:-${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}ircdserver}
+            - IRC_PORT=${IRC2TG_IRC_PORT:-${IRC_PORT:-6667}}
             - IRC_USE_SSL=${IRC2TG_IRC_USE_SSL:-false}
             - IRC_CERT_ALLOW_SELFSIGNED=true
             - IRC_CERT_ALLOW_EXPIRED=false
