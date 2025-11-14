@@ -55,7 +55,10 @@ services:
     #--------------------------------
     servicealerts:
         profiles: [ "all", "status", "webserver", "mailserver", "irc", "keepass", "quake" ]
-        image: lorcas/docker-telegram-notifier:latest
+        #image: lorcas/docker-telegram-notifier:latest // TODO ℹ️ Temporarily DISABLED until PR merged
+        build:
+            context: https://github.com/oliveratgithub/docker-telegram-notifier.git
+            dockerfile: Dockerfile
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}notifier
         restart: on-failure:1
@@ -491,8 +494,7 @@ services:
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.tls.passthrough=true}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-plain-service}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.entryPoints=smtp-ssl}
-            - ${MAILSERVER_HOST_INTERNAL:+${USE_LETSENCRYPT:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.rule=HostSNI(`*`)}}
-            - ${MAILSERVER_HOST_INTERNAL:+${USE_LETSENCRYPT:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.rule=HostSNI(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)}}
+            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.rule=HostSNI(`${MAILSERVER_HOST_INTERNAL}.${DOMAINNAME}`)}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-plain-service.loadbalancer.server.port=25}
         environment:
             # 📖 HOWTO https://docker-mailserver.github.io/docker-mailserver/latest/config/environment/
@@ -566,7 +568,8 @@ services:
             # --- IRC (6667/tcp) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-tcp-service"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.entryPoints=irc-tcp"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.rule=HostSNI(`*`)"
+            - ${IRC_HOST:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.rule=HostSNI(`*`)}
+            - ${IRC_HOST:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.rule=HostSNI(`${IRC_HOST}.${DOMAINNAME}`)}
             - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-tcp-service.loadbalancer.server.port=6667"
             # --- IRC with SSL/TLS (6697/tcp) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.tls=true"
@@ -574,8 +577,7 @@ services:
             - ${USE_LETSENCRYPT:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.tls.certresolver=letsencrypt}
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.entryPoints=irc-tcp-ssl"
-            - ${USE_LETSENCRYPT:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.rule=HostSNI(`*`)}
-            - ${USE_LETSENCRYPT:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.rule=HostSNI(`${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}`)}
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.rule=HostSNI(`${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}`)"
             - ${USE_LETSENCRYPT:-traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service.loadbalancer.server.port=6697}
             - ${USE_LETSENCRYPT:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service.loadbalancer.server.port=6667}
         environment:
@@ -643,8 +645,11 @@ services:
     # --- 🕊️ Messaging Bridge between Telegram+IRC ---
     irc-telegram-bridge:
         profiles: [ "all", "irc" ]
-        image: bhavin192/teleirc:v2.2.0 #❤️‍🔥 WORKS BEEEST !!
-        platform: linux/amd64 # ℹ️ Has no arm64 support
+        #image: bhavin192/teleirc:v2.2.0 # // TODO Disabled until PRs merged
+        build:
+            context: https://github.com/zorgch/irc-telegram-bridge.git
+            dockerfile: deployments/container/Dockerfile
+        platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irctelegrambridge
         restart: on-failure
         depends_on:
@@ -661,9 +666,12 @@ services:
             - "traefik.enable=false"
         environment:
             # 📖 HOWTO https://docs.teleirc.com/en/latest/user/config-file-glossary/
+            - DEBUG=true
+            - DONT_SEND_TO_IRC=${IRC2TG_IRC_MUTED:-false}
+            - DONT_SEND_TO_TELEGRAM=${IRC2TG_TELEGRAM_MUTED:-false}
             # -=[ IRC-side Settings ]=-
-            - IRC_SERVER=${IRC2TG_IRC_SERVER:-${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}ircdserver}
-            - IRC_PORT=${IRC2TG_IRC_PORT:-${IRC_PORT:-6667}}
+            - IRC_SERVER=${IRC2TG_IRC_SERVER:-${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}}
+            - IRC_PORT=${IRC2TG_IRC_PORT:-${IRC_PORT}}
             - IRC_USE_SSL=${IRC2TG_IRC_USE_SSL:-false}
             - IRC_CERT_ALLOW_SELFSIGNED=true
             - IRC_CERT_ALLOW_EXPIRED=false
@@ -690,8 +698,11 @@ services:
             # -=[ Telegram-side Settings ]=-
             - TELEIRC_TOKEN=${IRC2TG_TELEGRAM_BOT_TOKEN:-}
             - TELEGRAM_CHAT_ID=${IRC2TG_TELEGRAM_BOT_CHATID:-}
+            - PREFER_FIRSTNAME=${IRC2TG_TG_PREFER_FIRSTNAME:-true}
             - MAX_MESSAGE_PER_MINUTE=20
             - SHOW_DISCONNECT_MESSAGE=true
+            - QUOTE_NICKNAME=true
+            - WHITELIST_USERNAMES=${IRC2TG_TG_ALLOWED_USERS:-}
             - TELEGRAM_MESSAGE_REPLY_LENGTH=55
             - TELEGRAM_MESSAGE_REPLY_PREFIX=${IRC2TG_TG_MESSAGE_REPLY_PREFIX:-}
             - TELEGRAM_MESSAGE_REPLY_SUFFIX=${IRC2TG_TG_MESSAGE_REPLY_SUFFIX:-}
@@ -783,7 +794,8 @@ services:
             # --- SFTP (22/tcp) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp-service"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.entryPoints=sftp-tcp"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.rule=HostSNI(`*`)"
+            - ${KEEPASS_HOST:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.rule=HostSNI(`*`)}
+            - ${KEEPASS_HOST:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.rule=HostSNI(`${KEEPASS_HOST}.${DOMAINNAME}`)}
             - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp-service.loadbalancer.server.port=22"
         command: "${KEEPASS_SFTP_USER:-keepass}:${KEEPASS_SFTP_PASSWORD:-}:::vault"
         volumes:
