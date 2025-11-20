@@ -143,10 +143,13 @@ services:
             # -=[ HTTP Services ]=-
             - "${HTTP_PORT:-80}:80/tcp"
             - "${HTTP_PORT_SSL:-443}:443/tcp"
-            - "${XDEBUG_PORT:-9003}:9003/tcp"
-            # -=[ Mail Server ]=-
-            - "${MAILSERVER_PORT_SMTP:-587}:587/tcp"
-            - "${MAILSERVER_PORT_SMTP_SSL:-465}:465/tcp"
+            - "127.0.0.1:${XDEBUG_PORT:-9003}:9003/tcp"
+            - "[::1]:${XDEBUG_PORT:-9003}:9003/tcp"
+            # -=[ Mail Server 🔒 Only allowed for Host ]=-
+            - "127.0.0.1:${MAILSERVER_PORT_SMTP_INTERNAL:-25}:25/tcp"
+            - "[::1]:${MAILSERVER_PORT_SMTP_INTERNAL:-25}:25/tcp"
+            #- "${MAILSERVER_PORT_SMTP:-587}:587/tcp" (OBSOLETE)
+            #- "${MAILSERVER_PORT_SMTP_SSL:-465}:465/tcp" (OBSOLETE)
             # -=[ IRC Server ]=-
             - "${IRC_PORT:-6667}:6667/tcp"
             - "${IRC_PORT_SSL:-6697}:6697/tcp"
@@ -203,8 +206,9 @@ services:
             # -=[ Website ]=-
             - --entryPoints.php-xdebug.address=:9003/tcp
             # -=[ Mail Server ]=-
-            - --entryPoints.smtp-tcp.address=:587/tcp
-            - --entryPoints.smtp-ssl.address=:465/tcp
+            - --entryPoints.smtp-tcp.address=:25/tcp
+            #- --entryPoints.smtp-tcp.address=:587/tcp # OBSOLETE
+            #- --entryPoints.smtp-ssl.address=:465/tcp # OBSOLETE
             # -=[ IRC Server ]=-
             - --entryPoints.irc-tcp.address=:6667/tcp
             - --entryPoints.irc-tcp-ssl.address=:6697/tcp
@@ -244,7 +248,7 @@ services:
             - zion-mainframe
         expose:
             - "80"
-            - "9003"
+            - "9003" # ℹ️ Xdebug PHP
         healthcheck:
             test: git --version || exit 1
             start_period: 60s
@@ -282,9 +286,10 @@ services:
             # - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.replacement=https://${DOMAINNAME}/$${2}}
             # - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.permanent=true}
             # - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.middlewares=redirect-to-main}
-            # --- Configure Xdebug (only in DEV mode) - Port 9003 ---
+            # --- (DEV mode only) Configure Xdebug : Port 9003 ---
             - ${XDEBUG_PORT:+traefik.tcp.routers.xdebug.entryPoints=php-xdebug}
             - ${XDEBUG_PORT:+traefik.tcp.routers.xdebug.rule=HostSNI(`*`)}
+            - ${XDEBUG_PORT:+traefik.tcp.routers.xdebug.priority=${NETWORK_TCP_SERVICES_ROUTING_PRIORITY:-1}}
             - ${XDEBUG_PORT:+traefik.tcp.services.xdebug.loadbalancer.server.port=9003}
         environment:
             # 📖 HOWTO https://hub.docker.com/_/php
@@ -455,8 +460,8 @@ services:
             - information-superhighway
         expose:
             - "25/tcp" # ℹ️ Unencrypted SMTP for docker-services internally
-            - "465/tcp" # ℹ️ SMTP with SSL/TLS
-            - "587/tcp" # ℹ️ SMTP with STARTTLS
+            #- "465/tcp" # ℹ️ (DISABLED) SMTP with SSL/TLS
+            #- "587/tcp" # ℹ️ (DISABLED) SMTP with STARTTLS
         healthcheck:
             test: "ss --listening --tcp | grep -P 'LISTEN.+:smtp' || exit 1"
             start_period: 10s
@@ -467,34 +472,37 @@ services:
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
-            - "telegram-notifier.service-uri=${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}:${MAILSERVER_PORT_SMTP_SSL:-465}}"
+            - "telegram-notifier.service-uri=${MAILSERVER_HOST:+${MAILSERVER_HOST}.}${DOMAINNAME}:${MAILSERVER_PORT_SMTP_INTERNAL:-25}"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             # 📖 HOWTO See docker-mailserver.github.io/docker-mailserver/v14.0/examples/tutorials/mailserver-behind-proxy/
             - "traefik.enable=true"
             - "traefik.docker.network=${NETWORK_TCP_SERVICES:-loadbalance-tcp}"
-            # --- SMTP with STARTTLS (587) ---
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.tls.passthrough=true"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.entryPoints=smtp-tcp"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.rule=HostSNI(`*`)"
-            - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service.loadbalancer.server.port=587"
-            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.tls.passthrough=true}
-            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.entryPoints=smtp-tcp}
-            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.rule=HostSNI(`*`)}
-            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service}
+            # --- (OBSOLETE) SMTP with STARTTLS (587) - only for authenticating mail clients ---
+            # - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.tls.passthrough=true"
+            # - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service"
+            # - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.entryPoints=smtp-tcp"
+            # - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.rule=HostSNI(`*`)"
+            # - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.priority=${NETWORK_TCP_SERVICES_ROUTING_PRIORITY:-1}"
+            # - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service.loadbalancer.server.port=587"
+            # - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.tls.passthrough=true}
+            # - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.entryPoints=smtp-tcp}
+            # - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.rule=HostSNI(`*`)}
+            # - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.priority=${NETWORK_TCP_SERVICES_ROUTING_PRIORITY:-1}}
+            # - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-tcp-service}
             # --- SMTP with SSL/TLS (465) ---
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.tls=true"
-            - ${USE_LETSENCRYPT:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.tls.passthrough=true}
-            - ${USE_LETSENCRYPT:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.tls.certresolver=letsencrypt}
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.entryPoints=smtp-ssl"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.rule=HostSNI(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)"
-            - ${USE_LETSENCRYPT:-traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service.loadbalancer.server.port=465}
-            - ${USE_LETSENCRYPT:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service.loadbalancer.server.port=25}
-            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.tls.passthrough=true}
-            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-plain-service}
-            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.entryPoints=smtp-ssl}
-            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internalsmtp-ssl.rule=HostSNI(`${MAILSERVER_HOST_INTERNAL}.${DOMAINNAME}`)}
+            # - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.tls=true"
+            # - ${USE_LETSENCRYPT:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.tls.passthrough=true}
+            # - ${USE_LETSENCRYPT:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.tls.certresolver=letsencrypt}
+            # - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service"
+            # - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.entryPoints=smtp-ssl"
+            # - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp-ssl.rule=HostSNI(`${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}`)"
+            # - ${USE_LETSENCRYPT:-traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service.loadbalancer.server.port=465}
+            # - ${USE_LETSENCRYPT:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-ssl-service.loadbalancer.server.port=25}
+            # --- SMTP Plain (25) ---
+            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internal-smtp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-plain-service}
+            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internal-smtp.entryPoints=smtp-tcp}
+            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internal-smtp.rule=HostSNI(`*`)}
+            - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}internal-smtp.priority=${NETWORK_TCP_SERVICES_ROUTING_PRIORITY:-1}}
             - ${MAILSERVER_HOST_INTERNAL:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}smtp-plain-service.loadbalancer.server.port=25}
         environment:
             # 📖 HOWTO https://docker-mailserver.github.io/docker-mailserver/latest/config/environment/
@@ -537,7 +545,7 @@ services:
         image: c0dy/unrealircd-anope
         platform: linux/amd64 # ℹ️ Has no arm64 support
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}ircdserver
-        restart: on-failure:5
+        restart: on-failure:3
         cpus: "${IRC_CPU:-0.5}"
         mem_limit: "${IRC_MEMORY:-256m}"
         security_opt:
@@ -568,8 +576,8 @@ services:
             # --- IRC (6667/tcp) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-tcp-service"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.entryPoints=irc-tcp"
-            - ${IRC_HOST:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.rule=HostSNI(`*`)}
-            - ${IRC_HOST:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.rule=HostSNI(`${IRC_HOST}.${DOMAINNAME}`)}
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.rule=HostSNI(`*`)"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.priority=${NETWORK_TCP_SERVICES_ROUTING_PRIORITY:-1}"
             - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-tcp-service.loadbalancer.server.port=6667"
             # --- IRC with SSL/TLS (6697/tcp) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.tls=true"
@@ -794,8 +802,8 @@ services:
             # --- SFTP (22/tcp) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp-service"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.entryPoints=sftp-tcp"
-            - ${KEEPASS_HOST:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.rule=HostSNI(`*`)}
-            - ${KEEPASS_HOST:+traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.rule=HostSNI(`${KEEPASS_HOST}.${DOMAINNAME}`)}
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.rule=HostSNI(`*`)"
+            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp.priority=${NETWORK_TCP_SERVICES_ROUTING_PRIORITY:-1}"
             - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sftp-service.loadbalancer.server.port=22"
         command: "${KEEPASS_SFTP_USER:-keepass}:${KEEPASS_SFTP_PASSWORD:-}:::vault"
         volumes:

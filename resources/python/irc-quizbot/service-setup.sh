@@ -31,7 +31,9 @@ under certain conditions; see the LICENSE.'
 
 
 ########## Install libraries & extensions ##########
-apt-get update && apt-get install -y git \
+apt-get update -qq && apt-get install -y -qq \
+    git \
+    --no-install-recommends
     && rm -rf /var/lib/apt/lists/*
 pip install typing
 pip install twisted
@@ -55,13 +57,13 @@ fi
 
 ###### (If available) Use mapped custom config file overrides #######
 if [ -f "/home/q/config.py" ]; then
-  cp -f /home/q/config.py $APP_DIR/config.py
+    cp -f /home/q/config.py $APP_DIR/config.py
 fi
 if [ -f "/home/q/questions.py" ]; then
-  cp -f /home/q/questions.py $APP_DIR/questions.py
+    cp -f /home/q/questions.py $APP_DIR/questions.py
 fi
 if [ -f "/home/q/strings.py" ]; then
-  cp -f /home/q/strings.py $APP_DIR/strings.py
+    cp -f /home/q/strings.py $APP_DIR/strings.py
 fi
 
 

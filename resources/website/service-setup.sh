@@ -10,7 +10,7 @@ echo '
    ███    ██    ██ ██     ██   ███     ██    ██ ██  ██ ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
   ███████  ██████  ██      ██████       ██████  ██   ████     ██████   ██████   ██████ ██   ██ ███████ ██   ██
 Portable, Server independent, Docker-based code to get the zorg Websites and Services up, running, and hosted.
-Copyright (C) 2024  zorg Verein <https://github.com/zorgch>
+Copyright (C) 2024-2025  zorg Verein <https://github.com/zorgch>
 
   This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -32,8 +32,8 @@ under certain conditions; see the LICENSE.'
 
 ########## Install libraries & extensions ##########
 # Note: some are required due to dependencies = always installed!
-apt-get update && apt-get install -y \
-    cron git msmtp apache2-dev libmaxminddb0 libmaxminddb-dev libzip-dev \
+apt-get update -qq && apt-get install -y -qq \
+    cron git msmtp msmtp-mta apache2-dev libmaxminddb0 libmaxminddb-dev libzip-dev \
     ${INSTALL_APT_GET:-} \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
@@ -100,7 +100,7 @@ if [ -f "/tmp/msmtprc" ]; then
     chown www-data:www-data /var/log/msmtp
     chmod 755 /var/log/msmtp
 fi
-echo "sendmail_path = /usr/bin/msmtp -t" > /usr/local/etc/php/conf.d/mail.ini
+echo "sendmail_path = /usr/sbin/sendmail -t" > /usr/local/etc/php/conf.d/mail.ini
 
 # apache2: enable modules
 a2enmod headers

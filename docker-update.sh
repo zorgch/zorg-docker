@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -x
 
 ########## Print GNU GPLv3 LICENSE notices ##########
@@ -32,17 +33,23 @@ under certain conditions; see the LICENSE.'
 # NOTE: Don't forget to make me executable: chmod +x docker-update.sh
 
 
+############ Parse CLI arguments ##############
+# Start immediately when `--force` is passed
+SKIP_TIMER=false
+[ "${1:-}" = "--force" ] && SKIP_TIMER=true
+
+
 ######## Check and Load dependencies ##########
 if [ ! -f "./docker-compose.yml" ]; then
-  echo "Error: No ./docker-compose.yml file found"
-  exit 1
+    echo "Error: No ./docker-compose.yml file found"
+    exit 1
 fi
 
 if [ ! -f "./.env" ]; then
-  echo "Error: No ./.env file found"
-  exit 1
+    echo "Error: No ./.env file found"
+    exit 1
 else
-  source "./.env"
+    source "./.env"
 fi
 
 
@@ -54,7 +61,11 @@ DOCKER_STATUS_URL="the Status Dashboard"
 [ -n "$TELEGRAM_BOT_SERVICEALERTS_TOKEN" ] && BOT_TOKEN="$TELEGRAM_BOT_SERVICEALERTS_TOKEN"
 [ -n "$TELEGRAM_BOT_SERVICEALERTS_CHATID" ] && CHAT_ID="$TELEGRAM_BOT_SERVICEALERTS_CHATID"
 [ -n "$TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID" ] && CHAT_TOPIC_ID="$TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID"
-MESSAGE_ANNOUNCE="ANNOUNCEMENT 🔜 Scheduled updates for *$DOCKER_STACK* in T-15!"
+TIME_TO_START="in T-15"
+if [ "$SKIP_TIMER" = true ]; then
+    TIME_TO_START="start NOW (forced)"
+fi
+MESSAGE_ANNOUNCE="ANNOUNCEMENT 🔜 Scheduled updates for *$DOCKER_STACK* $TIME_TO_START!"
 MESSAGE_TIMER_T5="⌛️ In 5 minutes: *$DOCKER_STACK* updating starts!"
 #MESSAGE_TIMER_C10="🔟"
 #MESSAGE_TIMER_C05="5️⃣"
@@ -109,42 +120,43 @@ fi
 
 ############ Announcements ###############
 send_telegram_message "$MESSAGE_ANNOUNCE"
-sleep 600 # Wait now 10 minutes
-send_telegram_message "$MESSAGE_TIMER_T5"
-sleep 297 # Wait now 4 minutes 57 seconds
-#send_telegram_message "$MESSAGE_TIMER_C10"
-#sleep 5
-# Countdown start
-send_telegram_message "$MESSAGE_TIMER_C03"
-sleep 1
-send_telegram_message "$MESSAGE_TIMER_C02"
-sleep 1
-send_telegram_message "$MESSAGE_TIMER_C01"
-sleep 1
-send_telegram_message "$MESSAGE_START"
-
+if [ "$SKIP_TIMER" = true ]; then
+  sleep 600 # Wait now 10 minutes
+  send_telegram_message "$MESSAGE_TIMER_T5"
+  sleep 297 # Wait now 4 minutes 57 seconds
+  #send_telegram_message "$MESSAGE_TIMER_C10"
+  #sleep 5
+  # Countdown start
+  send_telegram_message "$MESSAGE_TIMER_C03"
+  sleep 1
+  send_telegram_message "$MESSAGE_TIMER_C02"
+  sleep 1
+  send_telegram_message "$MESSAGE_TIMER_C01"
+  sleep 1
+  send_telegram_message "$MESSAGE_START"
+fi
 
 ################# Cleanup unused Docker images #################
 UNUSED_IMAGES=$(docker image ls -f "dangling=true" --format '{{.Repository}} {{.Size}}' |
 awk '
 $1!="<none>"{
-  s=$2
-  if(s~/GB$/){sub(/GB/,"",s); gb=s+0}
-  else if(s~/MB$/){sub(/MB/,"",s); gb=(s+0)/1024}
-  else if(s~/kB$/){sub(/kB/,"",s); gb=(s+0)/1024/1024}
-  else if(s~/B$/){sub(/B/,"",s); gb=(s+0)/1024/1024/1024}
-  sum+=gb; n[$1]=1
+    s=$2
+    if(s~/GB$/){sub(/GB/,"",s); gb=s+0}
+    else if(s~/MB$/){sub(/MB/,"",s); gb=(s+0)/1024}
+    else if(s~/kB$/){sub(/kB/,"",s); gb=(s+0)/1024/1024}
+    else if(s~/B$/){sub(/B/,"",s); gb=(s+0)/1024/1024/1024}
+    sum+=gb; n[$1]=1
 }
 END{
-  printf "%.1fGB: ",sum; sep="";
-  for(i in n){printf "%s%s",sep,i; sep=", "}
+    printf "%.1fGB: ",sum; sep="";
+    for(i in n){printf "%s%s",sep,i; sep=", "}
 }')
 # Only send message and prune if there are unused images
 if [[ ! "$UNUSED_IMAGES" =~ ^0\.0 ]]; then
-  MESSAGE="${MESSAGE_CLEANUP/__STATS__/$UNUSED_IMAGES}"
-  send_telegram_message "$MESSAGE"
-  docker image prune -a -f
-  docker builder prune -f
+    MESSAGE="${MESSAGE_CLEANUP/__STATS__/$UNUSED_IMAGES}"
+    send_telegram_message "$MESSAGE"
+    docker image prune -a -f
+    docker builder prune -f
 fi
 
 
