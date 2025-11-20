@@ -476,7 +476,6 @@ services:
             # -=[ traefik Reverse Proxy : routing ON ]=-
             # 📖 HOWTO See docker-mailserver.github.io/docker-mailserver/v14.0/examples/tutorials/mailserver-behind-proxy/
             - "traefik.enable=true"
-            - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.priority=${NETWORK_TCP_SERVICES_ROUTING_PRIORITY:-1}"
             - "traefik.docker.network=${NETWORK_TCP_SERVICES:-loadbalance-tcp}"
             # --- (OBSOLETE) SMTP with STARTTLS (587) - only for authenticating mail clients ---
             # - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}mailsmtp.tls.passthrough=true"
