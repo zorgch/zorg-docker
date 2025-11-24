@@ -33,7 +33,7 @@ under certain conditions; see the LICENSE.'
 ########## Install libraries & extensions ##########
 apt-get update -qq && apt-get install -y -qq \
     git \
-    --no-install-recommends
+    --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 pip install typing
 pip install twisted
