@@ -693,16 +693,20 @@ services:
             - IRC_NICKSERV_USER=${IRC2TG_IRC_NICKSERV_USER:-}
             - IRC_NICKSERV_PASS=${IRC2TG_IRC_NICKSERV_PASS:-}
             - IRC_BLACKLIST=${IRC2TG_IRC_IGNORE_NICKS:-}
-            - TELEGRAM_MESSAGE_PREFIX=${IRC2TG_IRC_MESSAGE_PREFIX:-}
-            - TELEGRAM_MESSAGE_SUFFIX=${IRC2TG_IRC_MESSAGE_SUFFIX:-}
             - IRC_MAX_MESSAGE_LENGTH=512
             - IRC_NO_FORWARD_PREFIX=${IRC2TG_MESSAGE_MUTE_PREFIX:-!}
+            - TELEGRAM_MESSAGE_PREFIX=${IRC2TG_IRC_MESSAGE_PREFIX:-}
+            - TELEGRAM_MESSAGE_SUFFIX=${IRC2TG_IRC_MESSAGE_SUFFIX:-}
+            - IRC_EDITED_PREFIX=${IRC2TG_TG_MESSAGE_EDITED:-}
             - IRC_QUIT_MESSAGE=${IRC2TG_IRC_MESSAGE_QUIT:-}
-            - IRC_SEND_DOCUMENT=false
-            - IRC_SEND_STICKER_EMOJI=false
-            - IRC_SHOW_LOCATION_MESSAGE=false
             - IRC_SHOW_JOIN_MESSAGE=false
             - IRC_SHOW_LEAVE_MESSAGE=false
+            - SHOW_ACTION_MESSAGE=${IRC2TG_TG_SHOW_IRC_ACTION:-}
+            - SHOW_JOIN_MESSAGE=${IRC2TG_TG_SHOW_IRC_JOINS:-}
+            - SHOW_KICK_MESSAGE=${IRC2TG_TG_SHOW_IRC_KICKS:-}
+            - SHOW_LEAVE_MESSAGE=${IRC2TG_TG_SHOW_IRC_LEAVES:-}
+            - SHOW_NICK_MESSAGE=${IRC2TG_TG_SHOW_IRC_NICK_CHANGE:-}
+            - SHOW_TOPIC_MESSAGE=${IRC2TG_TG_SHOW_IRC_TOPIC_CHANGE:-}
             # -=[ Telegram-side Settings ]=-
             - TELEIRC_TOKEN=${IRC2TG_TELEGRAM_BOT_TOKEN:-}
             - TELEGRAM_CHAT_ID=${IRC2TG_TELEGRAM_BOT_CHATID:-}
@@ -716,13 +720,12 @@ services:
             - TELEGRAM_MESSAGE_REPLY_SUFFIX=${IRC2TG_TG_MESSAGE_REPLY_SUFFIX:-}
             - IRC_PREFIX=${IRC2TG_TG_MESSAGE_PREFIX:-}
             - IRC_SUFFIX=${IRC2TG_TG_MESSAGE_SUFFIX:-}
-            - IRC_EDITED_PREFIX=${IRC2TG_TG_MESSAGE_EDITED:-}
-            - SHOW_ACTION_MESSAGE=${IRC2TG_TG_SHOW_IRC_ACTION:-}
-            - SHOW_JOIN_MESSAGE=${IRC2TG_TG_SHOW_IRC_JOINS:-}
-            - SHOW_KICK_MESSAGE=${IRC2TG_TG_SHOW_IRC_KICKS:-}
-            - SHOW_LEAVE_MESSAGE=${IRC2TG_TG_SHOW_IRC_LEAVES:-}
-            - SHOW_NICK_MESSAGE=${IRC2TG_TG_SHOW_IRC_NICK_CHANGE:-}
-            - SHOW_TOPIC_MESSAGE=${IRC2TG_TG_SHOW_IRC_TOPIC_CHANGE:-}
+            - IRC_SEND_DOCUMENT=false
+            - IRC_SEND_STICKER_EMOJI=false
+            - IRC_SHOW_LOCATION_MESSAGE=false
+            - IRC_SEND_PHOTO=false
+            # ⚠️ Explicitely setting the following as null/(empty) kills attempts to use api.imgur.com for images shared
+            - IMGUR_CLIENT_ID=
 
     # --- 📈 Stockticker ---
     stockticker:
