@@ -4,7 +4,7 @@
 #    ███    ██    ██ ██     ██   ███     ██    ██ ██  ██ ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
 #   ███████  ██████  ██      ██████       ██████  ██   ████     ██████   ██████   ██████ ██   ██ ███████ ██   ██
 # Portable, Server independent, Docker-based code to get the zorg Websites and Services up, running, and hosted.
-# Copyright (C) 2024-2025  zorg Verein <https://github.com/zorgch>
+# Copyright (C) 2024-2026  zorg Verein <https://github.com/zorgch>
 #
 #   This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -675,8 +675,8 @@ services:
         environment:
             # 📖 HOWTO https://docs.teleirc.com/en/latest/user/config-file-glossary/
             - DEBUG=true
-            - DONT_SEND_TO_IRC=${IRC2TG_IRC_MUTED:-false}
-            - DONT_SEND_TO_TELEGRAM=${IRC2TG_TELEGRAM_MUTED:-false}
+            - DISABLE_RELAY_TO_IRC=${IRC2TG_IRC_MUTED:-false}
+            - DISABLE_RELAY_TO_TELEGRAM=${IRC2TG_TELEGRAM_MUTED:-false}
             # -=[ IRC-side Settings ]=-
             - IRC_SERVER=${IRC2TG_IRC_SERVER:-${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}}
             - IRC_PORT=${IRC2TG_IRC_PORT:-${IRC_PORT}}
