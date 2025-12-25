@@ -1,0 +1,71 @@
+#                                                               ██████   ██████   ██████ ██   ██ ███████ ██████
+#   ███████  ██████  ████    ██████       ██████  ████   ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
+#      ███  ██    ██ ██  ██ ██           ██    ██ ██ ██  ██     ██   ██ ██    ██ ██      █████   █████   ██████
+#    ███    ██    ██ ██     ██   ███     ██    ██ ██  ██ ██     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
+#   ███████  ██████  ██      ██████       ██████  ██   ████     ██████   ██████   ██████ ██   ██ ███████ ██   ██
+# Portable, Server independent, Docker-based code to get the zorg Websites and Services up, running, and hosted.
+# Copyright (C) 2025-2026  zorg Verein <https://github.com/zorgch>
+#
+#   This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+#
+#   This program comes with ABSOLUTELY NO WARRANTY; for details read the README.
+# This is free software, and you are welcome to redistribute it
+# under certain conditions; see the LICENSE.
+
+services:
+
+    #------------------------------------------
+    # ↪️ Redirect zooomclan.org to --> zorg.ch
+    #------------------------------------------
+    # 📖 Run it using: docker-compose -f docker-compose-zooomclanorg_redirect.yml up -d
+    zooomclan-domain-http-forwarder:
+        profiles: [ "all", "webserver" ]
+        image: traefik/whoami:latest
+        platform: ${OS_PLATFORM:-linux/amd64}
+        container_name: zooomclan-http-redirect
+        restart: on-failure:1
+        cpus: "${MICROSERVICE_CPU:-0.1}"
+        mem_limit: "${MICROSERVICE_MEMORY:-64m}"
+        security_opt:
+            - "no-new-privileges:true"
+        networks:
+            - loadbalance-http
+        expose:
+            - "80"
+        labels:
+            # -=[ Servicealerting ]=-
+            - "telegram-notifier.monitor=true"
+            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
+            - "telegram-notifier.service-uri=https://zooomclan.org"
+
+            # -=[ traefik Reverse Proxy : routing ON ]=-
+            - "traefik.enable=true"
+            - "traefik.docker.network=${NETWORK_HTTP_SERVICES:-loadbalance-http}"
+            # --- Middleware to Redirect to zorg.ch ---
+            - "traefik.http.middlewares.redirect-to-primary.redirectregex.permanent=true"
+            - "traefik.http.middlewares.redirect-to-primary.redirectregex.regex=^https?://(www\\.)?zooomclan\\.org/(.*)"
+            - "traefik.http.middlewares.redirect-to-primary.redirectregex.replacement=https://zorg.ch/$${2}"
+            # --- HTTP with TLS (:80 + :443) ---
+            - "traefik.http.routers.zooomclan-domain-https.tls=true"
+            - "traefik.http.routers.zooomclan-domain-https.tls.certresolver=letsencrypt"
+            - "traefik.http.routers.zooomclan-domain-https.entryPoints=websecure"
+            - "traefik.http.routers.zooomclan-domain-https.rule=Host(`zooomclan.org`) || Host(`www.zooomclan.org`)"
+            - "traefik.http.routers.zooomclan-domain-https.middlewares=redirect-to-primary"
+            - "traefik.http.routers.zooomclan-domain-https.service=zooomclan-redirect-service"
+            - "traefik.http.services.zooomclan-redirect-service.loadbalancer.server.port=80"
+
+networks:
+    loadbalance-http:
+        external: true

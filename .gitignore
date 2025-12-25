@@ -4,6 +4,7 @@
 **/mysql/*
 **/docs/*
 .env
+.github/instructions/snyk_rules.instructions.md
 acme.json
 *_log*
 *.bak
