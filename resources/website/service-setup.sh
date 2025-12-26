@@ -148,8 +148,8 @@ fi
 
 # Set ownership & permissions for all directories and files under /var/www/*
 chown -R www-data:www-data ${APACHE_PHP_ROOT:-/var/www}
-find ${APACHE_PHP_ROOT:-/var/www} -type d -exec chmod 755 {} \; # (755 = drwxr-xr-x)
-find ${APACHE_PHP_ROOT:-/var/www} -type f -exec chmod 644 {} \; # (644 = -rw-r--r--)
+find ${APACHE_PHP_ROOT:-/var/www} -type d -exec chmod 755 {} + # (755 = drwxr-xr-x)
+find ${APACHE_PHP_ROOT:-/var/www} -type f -exec chmod 644 {} + # (644 = -rw-r--r--)
 
 
 ########## Start the cron service & keep service running ##########
