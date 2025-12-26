@@ -52,7 +52,7 @@ curl -sSLf \
         https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions && \
     chmod +x /usr/local/bin/install-php-extensions && \
     IPE_KEEP_SYSPKG_CACHE=1 IPE_GD_WITHOUTAVIF=1 \
-    install-php-extensions @composer mysqli zip ${INSTALL_PHP_EXTENSIONS:-${DEVELOPMENT_MODE:+xdebug}}
+    install-php-extensions @composer mysqli pdo_mysql zip ${INSTALL_PHP_EXTENSIONS:-${DEVELOPMENT_MODE:+xdebug}}
 
 # MaxMind for apache2: install mod_maxminddb from source
 cd /tmp && \
@@ -118,7 +118,8 @@ if [ ! -d "${APACHE_PHP_ROOT:-/var/www}/html/.git" ]; then
     git -C "${APACHE_PHP_ROOT:-/var/www}/html" reset --hard HEAD
 else
     # Repository exists. Pulling latest changes...
-    git -C "${APACHE_PHP_ROOT:-/var/www}/html" pull origin ${GIT_BRANCH:-main} --force
+    git -C "${APACHE_PHP_ROOT:-/var/www}/html" fetch origin ${GIT_BRANCH:-main}
+    git -C "${APACHE_PHP_ROOT:-/var/www}/html" reset --hard ${GIT_BRANCH:-main}
 fi
 
 
@@ -147,8 +148,8 @@ fi
 
 # Set ownership & permissions for all directories and files under /var/www/*
 chown -R www-data:www-data ${APACHE_PHP_ROOT:-/var/www}
-find ${APACHE_PHP_ROOT:-/var/www} -type d -exec chmod 755 {} \; # (755 = drwxr-xr-x)
-find ${APACHE_PHP_ROOT:-/var/www} -type f -exec chmod 644 {} \; # (644 = -rw-r--r--)
+find ${APACHE_PHP_ROOT:-/var/www} -type d -exec chmod 755 {} + # (755 = drwxr-xr-x)
+find ${APACHE_PHP_ROOT:-/var/www} -type f -exec chmod 644 {} + # (644 = -rw-r--r--)
 
 
 ########## Start the cron service & keep service running ##########

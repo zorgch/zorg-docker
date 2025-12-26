@@ -12,10 +12,10 @@
 #
 # == Usage ==
 # one time (without any threshold):
-# % python3 ./stock_notifications.py "BTC-USD"
+# % python3 ./stock_notifications.py "BTC-USD" "<Telegram BOT_TOKEN>" "<Telegram CHAT_ID>"
 #
 # running as a service (every 11 hours, if threshold above 99.9):
-# % nohup python3 ./stock_notifications.py "TSLA" 99.9 39600 $
+# % nohup python3 ./stock_notifications.py "TSLA" "<BOT_TOKEN>" "<CHAT_ID>" 99.9 39600 $
 #
 # ~~~~~
 # Original source: https://codeburst.io/indian-stock-market-price-notifier-bot-telegram-92e376b0c33a
@@ -33,18 +33,18 @@ import urllib.parse
 import yfinance as yf
 
 # Check for stock symbol as 1st parameter
-if len(sys.argv) < 3:
+if len(sys.argv) < 4:
     print("Missing parameters. Usage: script.py SYMBOL BOT_TOKEN CHAT_ID [THRESHOLD] [INTERVAL]")
-    quit()
+    sys.exit(1)
 else:
-    symbol=sys.argv[1]
+    symbol = sys.argv[1]
     bot_token = sys.argv[2]
     bot_chatID = sys.argv[3]
 
 # Check for and validate Telegram Bot-Token and Chat-ID
 if len(bot_token) < 40 or len(bot_chatID) < 5:
     print("Invalid BOT_TOKEN or CHAT_ID values!")
-    quit()
+    sys.exit(1)
 
 # Check for optional price notification threshold as 4th parameter
 if len(sys.argv) <= 4:
@@ -54,22 +54,22 @@ elif float(sys.argv[4]) > 0.00:
     price_threshold = float(sys.argv[4])
 else:
     print("Invalid 4th parameter: must be a positive number as price change threshold (e.g. 1.00).")
-    quit()
+    sys.exit(1)
 
 # Check for optional timer seconds as 5th parameter
 if len(sys.argv) <= 5:
     # Default: 1 minute = 60 seconds
-    repeat=60
+    repeat = 60
 elif int(sys.argv[5]) >= 1:
-    repeat=int(sys.argv[5])
+    repeat = int(sys.argv[5])
 else:
     print("Invalid 5th parameter: must be a number representing seconds to re-run script (e.g. 3600).")
-    quit()
+    sys.exit(1)
 
 # Global vars
-currency=''
-price_initial=0
-price=0
+currency = ''
+price_initial = 0
+price = 0
 
 # Get currency for symbol
 if currency == '':
@@ -132,34 +132,39 @@ def getStock():
         if price == price_initial:
             #print('========== DEBUG: price == price_initial: '+str(price))
             price_diff = 0
-            price_change_str = ''
             price_diff_str = ''
         elif price > price_initial:
             #print('========== DEBUG: price > price_initial: '+str(price))
             price_diff = round(price - price_initial, 2)
-            price_change_str = "📈up"
-            price_diff_str = f"({price_change_str} +{price_diff})"
+            price_diff_str = f"📈 up {str("+{0:,.2f}".format(price_diff)).replace(',', '\'')}"
         else:
             #print('========== DEBUG: other: '+str(price))
             price_diff = round(price_initial - price, 2)
-            price_change_str = "📉dip"
-            price_diff_str = f"({price_change_str} -{price_diff})"
+            price_diff_str = f"📉 dip {str("-{0:,.2f}".format(price_diff)).replace(',', '\'')}"
 
         # Price diff above given threshold AND change of stock price
         if abs(price_diff) >= price_threshold:
             #print('========== DEBUG: abs(price_diff) >= price_threshold: '+str(symbol))
-            message=symbol+" @ *"+currency+" "+str("{0:,.2f}".format(price)).replace(',', '\'')+"* "+price_diff_str
-            message=message.replace("-","\-")
-            message=message.replace("+","\+")
-            message=message.replace(".","\.")
-            message=message.replace("(","\(")
-            message=message.replace(")","\)")
-            message=message.replace("?","\?")
-            message=message.replace("^","\^")
-            message=message.replace("$","\$")
-            message=urllib.parse.quote_plus(message)
+            time_checks_str = ''
+            if repeat >= 86400:
+                time_checks = int(repeat // 86400)
+                time_checks_str = f" (last {time_checks} {'day' if time_checks == 1 else 'days'})"
+            elif repeat >= 3600:
+                time_checks = int(repeat // 3600)
+                time_checks_str = f" (last {time_checks} {'hour' if time_checks == 1 else 'hours'})"
+            elif repeat >= 60:
+                time_checks = int(repeat // 60)
+                time_checks_str = f" (last {time_checks} {'minute' if time_checks == 1 else 'minutes'})"
+            else:
+                time_checks_str = f" (last {repeat} {'second' if repeat == 1 else 'seconds'})"
 
-            send='https://api.telegram.org/bot' + bot_token + '/sendMessage?parse_mode=MarkdownV2&disable_notification=true&chat_id=' + bot_chatID + '&text=' + message
+            message = symbol+" @ *"+currency+" "+str("{0:,.2f}".format(price)).replace(',', '\'')+"*\n"+price_diff_str+time_checks_str
+            reserved_chars = ['(', ')', '?', '+', '-', '.', '^', '$']
+            for char in reserved_chars:
+                message = message.replace(char, f"\\{char}")
+            message = urllib.parse.quote_plus(message)
+
+            send = 'https://api.telegram.org/bot' + bot_token + '/sendMessage?parse_mode=MarkdownV2&disable_notification=true&chat_id=' + bot_chatID + '&text=' + message
             try:
                 response = requests.get(send)
                 response.raise_for_status()  # Raise an exception for bad status codes

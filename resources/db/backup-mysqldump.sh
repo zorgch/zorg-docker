@@ -92,7 +92,7 @@ OUTFILE="${BACKUP_DIR}/backup-${DB_NAME}-${DATE}.sql"
 
 # Messages
 MESSAGE_START="⚙️ STARTING: *$CONTAINER* backup of DB \`$DB_NAME\`..."
-MESSAGE_BACKUP="☑️ *SUCCESSFULLY* mariadb-dump'ed *$DB_NAME* to\n> \`$OUTFILE\`"
+MESSAGE_BACKUP="☑️ *SUCCESSFULLY* mariadb-dumped *$DB_NAME* to\n> \`$OUTFILE\`"
 MESSAGE_ERRBACKUP="⚠️ *FAILED* to backup $DB_NAME, please investigate: "
 MESSAGE_FINISH="✅ ALL DONE: *$CONTAINER* DB backup finished!"
 
