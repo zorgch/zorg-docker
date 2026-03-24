@@ -177,6 +177,17 @@ services:
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.rule=HostRegexp(`{host:.+}`)"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.entryPoints=web"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.middlewares=redirect-to-https"
+            # -=[ CrowdSec WAF Middleware (crowdsec-bouncer-traefik-plugin) ]=-
+            # ℹ️ Defined here (not in middlewares-http.yaml) to allow ${CROWDSEC_BOUNCER_KEY} env var substitution
+            # ℹ️ The CROWDSEC_BOUNCER_KEY must match the BOUNCER_KEY_traefik value set in the crowdsec service
+            - "traefik.http.middlewares.crowdsec-waf.plugin.crowdsec-bouncer.crowdsecMode=live"
+            - "traefik.http.middlewares.crowdsec-waf.plugin.crowdsec-bouncer.crowdsecLapiHost=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}crowdsec:8080"
+            - "traefik.http.middlewares.crowdsec-waf.plugin.crowdsec-bouncer.crowdsecLapiKey=${CROWDSEC_BOUNCER_KEY:-changeme-update-in-dotenv}"
+            - "traefik.http.middlewares.crowdsec-waf.plugin.crowdsec-bouncer.crowdsecAppsecEnabled=true"
+            - "traefik.http.middlewares.crowdsec-waf.plugin.crowdsec-bouncer.crowdsecAppsecHost=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}crowdsec:7422"
+            # ℹ️ crowdsecAppsecFailureBlock=false = fail-open (requests pass if AppSec is unreachable)
+            - "traefik.http.middlewares.crowdsec-waf.plugin.crowdsec-bouncer.crowdsecAppsecFailureBlock=false"
+            - "traefik.http.middlewares.crowdsec-waf.plugin.crowdsec-bouncer.updateIntervalSeconds=60"
         command:
             - --global.sendAnonymousUsage=false
             - --log.level=${REVERSEPROXY_LOGLEVEL:-ERROR}
@@ -188,9 +199,9 @@ services:
             - --providers.file.directory=/config
             - --providers.file.watch=true
             - --serversTransport.insecureSkipVerify=true
-            # -=[ WAF Plugin (Coraza) ]=-
-            - --experimental.plugins.coraza.modulename=github.com/jcchavezs/coraza-http-wasm-traefik
-            - --experimental.plugins.coraza.version=v0.3.0
+            # -=[ WAF Plugin (CrowdSec Bouncer) ]=-
+            - --experimental.plugins.crowdsec-bouncer.modulename=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+            - --experimental.plugins.crowdsec-bouncer.version=v1.5.1
             # -=[ HTTP Services ]=-
             # --- Default HTTP
             - --entryPoints.web.address=:80
@@ -219,14 +230,65 @@ services:
             - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.storage=/certs/acme.json}
             - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.tlsChallenge=true}
             - ${USE_LETSENCRYPT:+${LETSENCRYPT_CASERVER:+--certificatesResolvers.letsencrypt.acme.caserver=${LETSENCRYPT_CASERVER}}}
+            # -=[ Traefik Access Log (parsed by CrowdSec for behavioral analysis) ]=-
+            - --accessLog.filePath=/var/log/traefik/access.log
+            - --accessLog.format=json
+            - --accessLog.bufferingSize=100
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - sslcerts-files:/certs:rw # :rw = read+write (explicit)
             # -=[ Configs ]=-
             - "${HOST_PATH_REVERSEPROXY_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/reverseproxy}:/config:ro" # :ro = read-only
-            - "${HOST_PATH_REVERSEPROXY_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/reverseproxy}/coraza-data:/var/lib/coraza"
             # -=[ Logs ]=-
-            - "${HOST_PATH_LOGS:-./logs}/reverseproxy-owasp:/var/log/coraza"
+            - "${HOST_PATH_LOGS:-./logs}/reverseproxy:/var/log/traefik"
+
+    #------------------------------------------------
+    # 🛡️ CrowdSec WAF & Threat Intelligence Engine
+    #------------------------------------------------
+    crowdsec:
+        profiles: [ "all", "status", "webserver", "mailserver", "irc" ]
+        image: crowdsecurity/crowdsec:v1.7.6
+        platform: ${OS_PLATFORM:-linux/amd64}
+        container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}crowdsec
+        restart: unless-stopped
+        cpus: "${CROWDSEC_CPU:-0.5}"
+        mem_limit: "${CROWDSEC_MEMORY:-512m}"
+        security_opt:
+            - "no-new-privileges:true"
+        networks:
+            - the-grid
+        expose:
+            - "8080" # ℹ️ LAPI (Local API for bouncer communication)
+            - "7422" # ℹ️ AppSec (Application Security real-time request inspection)
+        healthcheck:
+            test: cscli version || exit 1
+            start_period: 30s
+            interval: 30s
+            timeout: 10s
+            retries: 3
+        labels:
+            # -=[ Servicealerting ]=-
+            - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
+            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
+            # -=[ traefik Reverse Proxy : routing OFF ]=-
+            - "traefik.enable=false"
+        environment:
+            - TZ=${TIMEZONE:-Europe/Zurich}
+            - GID=1000
+            # ℹ️ Collections: traefik=log parsing, http-cve=CVE coverage, appsec-*=OWASP WAF rules (virtual patching + generic rules)
+            - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
+            # ℹ️ Pre-register the Traefik bouncer API key (must match CROWDSEC_BOUNCER_KEY in .env)
+            - BOUNCER_KEY_traefik=${CROWDSEC_BOUNCER_KEY:-changeme-update-in-dotenv}
+        volumes:
+            - crowdsec-db:/var/lib/crowdsec/data
+            # -=[ Configs ]=-
+            - "${HOST_DOCKER_WORKING_DIR:-.}/resources/crowdsec/acquis.yaml:/etc/crowdsec/acquis.d/traefik.yaml:ro"
+            - "${HOST_DOCKER_WORKING_DIR:-.}/resources/crowdsec/appsec-config.yaml:/etc/crowdsec/appsec-configs/zorg-appsec-config.yaml:ro"
+            - "${HOST_DOCKER_WORKING_DIR:-.}/resources/crowdsec/appsec-rules:/etc/crowdsec/appsec-rules/zorg:ro"
+            # -=[ Logs ]=-
+            - "${HOST_PATH_LOGS:-./logs}/reverseproxy:/var/log/traefik:ro" # :ro = read-only (Traefik access logs for behavioral analysis)
+            - "${HOST_PATH_LOGS:-./logs}/crowdsec:/var/log/crowdsec"
 
     #----------------------
     # 🌐 Apache-PHP Website
@@ -276,7 +338,7 @@ services:
             - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.tls.certresolver=letsencrypt}
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.entryPoints=websecure"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.rule=Host(`${DOMAINNAME:-website}`) || Host(`www.${DOMAINNAME:-website}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=${WEBSITE_STRIP_WWW:+strip-www,}owasp-coraza-waf@file,contenttype-add@file,compress-gzip@file,securityheaders-add@file"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=${WEBSITE_STRIP_WWW:+strip-www,}crowdsec-waf@docker,contenttype-add@file,compress-gzip@file,securityheaders-add@file"
             # --- (REMOVED) Configure Redirect for Secondary Domainname ---
             # - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls=true}
             # - ${SECONDARY_DOMAINNAME:+${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls.certresolver=letsencrypt}}
@@ -920,4 +982,6 @@ volumes:
     mail-data-files:
         external: false
     mail-state-files:
+        external: false
+    crowdsec-db:
         external: false

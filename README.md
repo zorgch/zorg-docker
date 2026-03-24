@@ -119,8 +119,8 @@ Creat the a folder structure on your host machine that reflects the following:
     ├── docker-compose.yml <-- Symbolic-linked ./zorg-docker/docker-compose.yml
     ├── docker-update.sh   <-- Symbolic-linked ./zorg-docker/docker-update.sh
     │
-    ├── reverseproxy/      <-- (Optional) To further customize OWASP WAF rules or IP-Whitelist. Ref in .env
-    │   └── owasp-coraza-waf.yaml
+    ├── reverseproxy/      <-- (Optional) To further customize Traefik middlewares (IP-Whitelist etc.). Ref in .env
+    │   └── middlewares-http.yaml
     |
     ├── website/           <-- zorg Website configs & data
     │   ├── .env           <-- .env file for Website
@@ -197,7 +197,7 @@ Here's an overview of the underlaying Docker images used for the Docker Services
 | ------------------ | ------------------------- | ------------------ |
 | `sslcerts`         | `alpine/mkcert`           | [GitHub](https://github.com/alpine-docker/multi-arch-docker-images/tree/master/mkcert) |
 | `dashboard`        | `portainer/portainer-ce`  | [Docs](https://docs.portainer.io/start/install-ce/server/docker) |
-| `reverseproxy`<br>+ `owasp-coraza-waf@file` | `traefik`<br>`coraza-http-wasm-traefik` | [Docs](https://doc.traefik.io/traefik/)<br>[GitHub](https://github.com/jcchavezs/coraza-http-wasm-traefik) |
+| `reverseproxy`<br>+ `crowdsec` | `traefik`<br>`crowdsecurity/crowdsec` | [Docs](https://doc.traefik.io/traefik/)<br>[Docs](https://docs.crowdsec.net/)<br>[Plugin](https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin) |
 | `website`          | `php`                     | [Docker Hub](https://hub.docker.com/_/php) |
 | `db`               | `mariadb`                 | [Docs](https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/) |
 | `db-manager`       | `adminer`                 | [Docs](https://hub.docker.com/_/adminer/#how-to-use-this-image) |
