@@ -7,7 +7,8 @@
 # Rules applied in-band (synchronous - can block requests):
 #   - crowdsecurity/vpatch-*     : Virtual patches for known CVEs (OWASP-equivalent coverage)
 #   - crowdsecurity/generic-*    : Generic attack detection (XSS, SQLi, path traversal, etc.)
-#   - zorg/block-*               : Custom bot/crawler blocking rules (see appsec-rules/ directory)
+#   - zorg/allow-*               : Custom allow/whitelist rules (cookies, static files) – evaluated FIRST
+#   - zorg/block-*               : Custom bot/crawler blocking rules – evaluated after allow rules
 #
 # Rules applied out-of-band (asynchronous - log/detect only, no blocking):
 #   - crowdsecurity/crs-*        : Full OWASP Core Rule Set (detection mode, no false-positive risk)
@@ -26,10 +27,13 @@ pass_http_code: 200
 error_http_code: 500
 
 # In-band rules: evaluated synchronously - can block requests before they reach the application
+# ℹ️ Order matters: zorg/allow-* is listed before zorg/block-* so whitelist rules
+#    (cookies, static files) are evaluated first and can short-circuit blocking rules.
 inband_rules:
   - crowdsecurity/base-config
   - crowdsecurity/vpatch-*
   - crowdsecurity/generic-rules-*
+  - zorg/allow-*
   - zorg/block-*
 
 # Out-of-band rules: evaluated asynchronously - detect only, no blocking (safe for full CRS)
