@@ -2,11 +2,68 @@
 # Documentation: https://docs.crowdsec.net/docs/appsec/rules_syntax
 #
 # These rules are migrated from the previous Apache ModSecurity / Coraza WAF configuration.
-# They block common malicious crawlers, bot exploit paths, and attack vectors.
+# They are split into two sections:
+#   1. ALLOW / WHITELIST rules  (zorg/allow-*)  — evaluated FIRST, permit specific patterns
+#   2. BLOCK rules              (zorg/block-*)  — block malicious crawlers, bots, exploit paths
 #
-# Rule naming convention: zorg/block-<category>
-# ℹ️ Rules here are applied in-band (blocking). Edit and restart the crowdsec container to apply changes.
-# ℹ️ To whitelist specific paths, add rules with a lower priority that pass before these rules fire.
+# ℹ️ Evaluation order: rules are processed in the order listed in appsec-config.yaml.
+#    "zorg/allow-*" is listed before "zorg/block-*" in the config, so allow rules run first.
+#    When an allow rule matches (on_match: allow: true), further evaluation is short-circuited
+#    and the request is passed through without being blocked.
+# ℹ️ Edit this file and restart the crowdsec container to apply changes.
+
+# =============================================================================
+# ALLOW / WHITELIST RULES
+# Migrated from Coraza WAF (originally in resources/reverseproxy/middlewares-http.yaml
+# "Initialization & Whitelist Rules" section, rules id:90000 and id:900110).
+# =============================================================================
+
+---
+# Allow all incoming cookie values through WAF inspection without blocking
+# Migrated from Coraza rule id:90000:
+#   SecRule REQUEST_COOKIES|REQUEST_COOKIES_NAMES "." "id:90000,phase:1,pass,nolog,msg:'Allow all cookies'"
+#
+# ⚠️ This is a broad allow rule for the COOKIES zone. It prevents blocking based on cookie
+#    content alone. Requests are still inspected by URI and ARGS zone rules.
+#    If specific cookies are known to carry legitimate content that triggers false positives
+#    (e.g. base64-encoded values that match SQLi patterns), keep this rule enabled.
+#    To tighten security, remove this rule and instead add targeted zorg/allow-custom-* rules
+#    for specific cookie names below (in the CUSTOM WHITELISTING section).
+name: zorg/allow-all-cookies
+description: "Allow all cookie values (prevent false-positive blocking on cookie content)"
+rules:
+  - zones:
+      - COOKIES
+    match:
+      type: regex
+      value: '.*'
+on_match:
+  - allow: true
+
+---
+# Allow static asset file extension requests to bypass WAF inspection
+# Migrated from Coraza rule id:900110:
+#   SecRule REQUEST_URI "@rx \.(css|js|...)$" "id:900110,phase:1,pass,nolog,ctl:requestBodyAccess=Off"
+#
+# Static assets (images, stylesheets, fonts, media files) never carry attack payloads
+# and skipping WAF inspection for them reduces latency and false-positive risk.
+name: zorg/allow-static-files
+description: "Skip WAF inspection for static asset file extension requests (CSS, JS, images, fonts, media, etc.)"
+rules:
+  - zones:
+      - URI
+    transform:
+      - lowercase
+    match:
+      type: regex
+      value: '\.(css|js|map|png|jpg|jpeg|gif|ico|svg|webp|avif|bmp|tiff|mp4|webm|ogg|mp3|wav|woff|woff2|ttf|eot|txt|pdf|br|gz|zip)(\?.*)?$'
+on_match:
+  - allow: true
+
+# =============================================================================
+# BLOCK RULES
+# Block common malicious crawlers, bot exploit paths, and attack vectors.
+# =============================================================================
 
 ---
 # Block CGI-bin access attempts
@@ -135,13 +192,13 @@ rules:
       value: '/(administrator|manager|webadmin|controlpanel|cpanel)(/|$|\?)'
 
 # =============================================================================
-# START CUSTOM WHITELISTING
-# Add whitelist rules below with a name prefix of "zorg/whitelist-"
-# ℹ️ CrowdSec AppSec evaluates rules in alphabetical order by name.
-#    Whitelist rule names starting with "zorg/whitelist-" sort before "zorg/block-"
-#    and will be evaluated first, allowing early pass decisions to skip block rules.
+# CUSTOM WHITELISTING
+# Add site-specific allow rules below using the "zorg/allow-custom-" name prefix.
+# ℹ️ "zorg/allow-*" names sort alphabetically before "zorg/block-*" (a < b),
+#    so all allow rules are evaluated before block rules as long as they are
+#    listed under zorg/allow-* in appsec-config.yaml → inband_rules.
 # Example:
-#   name: zorg/whitelist-my-path
+#   name: zorg/allow-custom-my-path
 #   description: "Allow specific path"
 #   rules:
 #     - zones: [URI]
@@ -150,6 +207,5 @@ rules:
 #         type: startsWith
 #         value: '/my-allowed-path/'
 #   on_match:
-#     - remediation: false
-# END CUSTOM WHITELISTING
+#     - allow: true
 # =============================================================================
