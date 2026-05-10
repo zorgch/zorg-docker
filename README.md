@@ -121,6 +121,9 @@ Creat the a folder structure on your host machine that reflects the following:
     │
     ├── reverseproxy/      <-- (Optional) To further customize Traefik middlewares (IP-Whitelist etc.). Ref in .env
     │   └── middlewares-http.yaml
+    │
+    ├── reverseproxy-waf/  <-- Copy & adjust "waf/rules/"-dir from repo. Ref in .env
+    │   └── zorg-appsec.yaml   <-- (Optional) To further customize WAF rules.
     |
     ├── website/           <-- zorg Website configs & data
     │   ├── .env           <-- .env file for Website
@@ -177,7 +180,8 @@ Creat the a folder structure on your host machine that reflects the following:
         │   ├── php/
         │   ├── sendmail/
         │   └── website/
-        ├── reverseproxy-owasp/
+        ├── reverseproxy/
+        ├── reverseproxy-waf/
         ├── mariadb/
         ├── mailserver-smtp/
         ├── irc-server/           <-- ⚠️ Requires: sudo chown -R 1000:1000
@@ -188,30 +192,27 @@ Creat the a folder structure on your host machine that reflects the following:
 <br>
 
 ### 💾 Docker images
-Here's an overview of the underlaying Docker images used for the Docker Services, in order to provide quick access to their documentation & configuration how-to's.
-
-<details>
-<summary>Click to show list</summary>
+Here's an overview of the underlying Docker images used for the Docker Services, in order to provide quick access to their documentation & configuration how-to's.
 
 | Service            | Docker image              | Link               |
 | ------------------ | ------------------------- | ------------------ |
-| `sslcerts`         | `alpine/mkcert`           | [GitHub](https://github.com/alpine-docker/multi-arch-docker-images/tree/master/mkcert) |
-| `dashboard`        | `portainer/portainer-ce`  | [Docs](https://docs.portainer.io/start/install-ce/server/docker) |
-| `reverseproxy`<br>+ `crowdsec` | `traefik`<br>`crowdsecurity/crowdsec` | [Docs](https://doc.traefik.io/traefik/)<br>[Docs](https://docs.crowdsec.net/)<br>[Plugin](https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin) |
-| `website`          | `php`                     | [Docker Hub](https://hub.docker.com/_/php) |
-| `db`               | `mariadb`                 | [Docs](https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/) |
-| `db-manager`       | `adminer`                 | [Docs](https://hub.docker.com/_/adminer/#how-to-use-this-image) |
-| `postfix-smtp`     | `mailserver/docker-mailserver` | [Docs](https://docker-mailserver.github.io/docker-mailserver/) |
-| `irc`              | `c0dy/unrealircd-anope`   | [Docker Hub](https://hub.docker.com/r/c0dy/unrealircd-anope) |
-| `irc-quizbot`      | `python:3.12-slim`        | [GitHub](https://github.com/zorgch/irc-quizbot) |
-| `irc-telegram-bridge` | `bhavin192/teleirc`    | [Docker Hub](https://hub.docker.com/r/bhavin192/teleirc) |
-| `stockticker`      | `python:3.12-slim`        | [GitHub](https://github.com/zorgch/zorg-docker/tree/dev/resources/python/stockticker) |
-| `servicealerts`    | `lorcas/docker-telegram-notifier` | [GitHub](https://github.com/luc-ass/docker-telegram-notifier) |
-| `sftp`             | `atmoz/sftp`              | [Docker Hub](https://hub.docker.com/r/atmoz/sftp/) |
-| `quake3`           | `jberrenberg/quake3`      | [GitHub](https://github.com/jberrenberg/docker-quake3/tree/master/quake3) |
-| `phpdoc`           | `phpdoc/phpdoc`           | [Docs](https://docs.phpdoc.org/guide/guides/running-phpdocumentor.html#running-phpdocumentor) |
+| 🔐 `sslcerts`      | `alpine/mkcert`           | [GitHub](https://github.com/alpine-docker/multi-arch-docker-images/tree/master/mkcert) |
+| 📊 `dashboard`     | `portainer/portainer-ce`  | [Docs](https://docs.portainer.io/start/install-ce/server/docker) |
+| 🚨 `servicealerts` | `lorcas/docker-telegram-notifier` | [GitHub](https://github.com/luc-ass/docker-telegram-notifier) |
+| 🚦 `reverseproxy`  | `traefik`                 | [Docs](https://doc.traefik.io/traefik/) |
+| 🛡️ `waf`           | `crowdsecurity/crowdsec`  | [Docs](https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin) |
+| 🌐 `website`       | `php`                     | [Docker Hub](https://hub.docker.com/_/php) |
+| 💽 `db`            | `mariadb`                 | [Docs](https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/) |
+| 👨‍💻 `db-manager`    | `adminer`                 | [Docs](https://hub.docker.com/_/adminer/#how-to-use-this-image) |
+| 📧 `postfix-smtp`  | `mailserver/docker-mailserver` | [Docs](https://docker-mailserver.github.io/docker-mailserver/) |
+| 💬 `irc`           | `c0dy/unrealircd-anope`   | [Docker Hub](https://hub.docker.com/r/c0dy/unrealircd-anope) |
+| 🧩 `irc-quizbot`   | `python:3-slim`           | [GitHub](https://github.com/zorgch/irc-quizbot) |
+| 🕊️ `irc-telegram-bridge` | `bhavin192/teleirc`    | [Docker Hub](https://hub.docker.com/r/bhavin192/teleirc) |
+| 📈 `stockticker`   | `python:3-slim`           | [GitHub](https://github.com/zorgch/zorg-docker/tree/dev/resources/python/stockticker) |
+| 🔑 `sftp`          | `atmoz/sftp`              | [Docker Hub](https://hub.docker.com/r/atmoz/sftp/) |
+| 🕹️ `quake3`        | `jberrenberg/quake3`      | [GitHub](https://github.com/jberrenberg/docker-quake3/tree/master/quake3) |
+| 📑 `phpdoc`        | `phpdoc/phpdoc`           | [Docs](https://docs.phpdoc.org/guide/guides/running-phpdocumentor.html#running-phpdocumentor) |
 
-</details>
 
 <br>
 
@@ -484,10 +485,10 @@ Some single services have their own profile, in order to prevent them from start
 | -------------- | ------------------------------------ | -------------------------------|
 | `all`          | All general services                 | `--profile all`                |
 | `setup`        | `sslcerts` `postfix-smtp`            | `--profile setup`              |
-| `status`       | `servicealerts` `dashboard` `reverseproxy` | `--profile status`       |
-| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `website` `db` `db-manager` `postfix-smtp` | `--profile webserver` |
-| `mailserver`   | `servicealerts` `dashboard` `reverseproxy` `postfix-smtp`  | `--profile mailserver` |
-| `irc`          | `servicealerts` `dashboard` `irc` `irc-quizbot` `irc-telegram-bridge` | `--profile irc` |
+| `status`       | `servicealerts` `dashboard` `reverseproxy` `waf` | `--profile status`       |
+| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `waf` `website` `db` `db-manager` `postfix-smtp` | `--profile webserver` |
+| `mailserver`   | `servicealerts` `dashboard` `reverseproxy` `waf` `postfix-smtp`  | `--profile mailserver` |
+| `irc`          | `servicealerts` `dashboard` `reverseproxy` `waf` `irc` `irc-quizbot` `irc-telegram-bridge` | `--profile irc` |
 | `keepass`      | `servicealerts` `dashboard` `sftp`   | `--profile keepass` |
 | `quake`        | `servicealerts` `dashboard` `quake3` | `--profile quake`   |
 | `docu`         | `phpdoc`                             | `--profile docu`    |

@@ -1,0 +1,30 @@
+# CrowdSec AppSec Configuration
+# Documentation: https://docs.crowdsec.net/docs/appsec/intro
+#
+# Defines the Application Security (WAF) ruleset for real-time HTTP request inspection.
+# This replaces the previous Apache ModSecurity / Coraza WAF configuration.
+#
+# Rules applied in-band (synchronous - can block requests):
+#   - crowdsecurity/vpatch-*     : Virtual patches for known CVEs (OWASP-equivalent coverage)
+#   - crowdsecurity/generic-*    : Generic attack detection (XSS, SQLi, path traversal, etc.)
+#   - custom/block-*             : Custom bot/crawler blocking rules (see appsec-rules/ directory)
+#
+# Rules applied out-of-band (asynchronous - log/detect only, no blocking):
+#   - crowdsecurity/crs-*        : Full OWASP Core Rule Set (detection mode, no false-positive risk)
+#
+name: custom/appsec-config
+
+default_remediation: ban
+default_pass_action: allow
+
+# In-band rules: evaluated synchronously - can block requests before they reach the application
+#
+# ℹ️ To add custom rules or whitelists, add any *.yaml file to path under HOST_PATH_WAF_RULES
+#    Name your rules with the "custom/" namespace prefix (e.g. custom/block-xyz, custom/whitelist-abc)
+#    A Docker Compose restart is required to apply rule changes.
+inband_rules:
+  - crowdsecurity/base-config
+  - crowdsecurity/vpatch-*
+  - crowdsecurity/generic-*
+  # ℹ️ Picks up custom rules from HOST_PATH_WAF_RULES (mounted at /etc/crowdsec/appsec-rules/custom/)
+  - custom/*

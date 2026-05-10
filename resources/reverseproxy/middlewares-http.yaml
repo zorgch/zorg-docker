@@ -61,3 +61,38 @@ http:
           - "fd00::/8"      # Docker IPv6 default range
           # EXTERNAL HOSTS
           # - ".../32"
+
+    # CrowdSec WAF (crowdsec-bouncer-traefik-plugin)
+    # - Use with: crowdsec-waf@file
+    # - Plugin docs: https://plugins.traefik.io/plugins/6335346ca4caa9ddeffda116/crowdsec-bouncer-traefik-plugin
+    crowdsec-waf:
+      plugin:
+        crowdsec-bouncer:
+          enabled: true
+          # ℹ️ Supported log level: DEBUG, INFO, ERROR
+          logLevel: INFO
+          crowdsecMode: stream
+          updateIntervalSeconds: 600
+          # ℹ️ Never block traffic if LAPI is unreachable (fail-open)
+          updateMaxFailure: -1
+          metricsUpdateIntervalSeconds: 0
+          # ℹ️ "waf" = Docker Compose service name, resolvable within the shared Docker network
+          crowdsecLapiHost: "waf:8080"
+          crowdsecLapiKey: "{{ env "CROWDSEC_BOUNCER_KEY" }}"
+          crowdsecAppsecEnabled: true
+          crowdsecAppsecHost: "waf:7422"
+          # ℹ️ fail-open: requests pass through if AppSec returns error or is unreachable
+          crowdsecAppsecFailureBlock: false
+          crowdsecAppsecUnreachableBlock: false
+          # ℹ️ Bypass CrowdSec checks for trusted local/Docker IPs
+          clientTrustedIPs:
+            # IPv4 - HOST
+            - "127.0.0.1/32"
+            - "192.168.0.0/12"
+            - "172.16.0.0/12"
+            # IPv6 - HOST
+            - "::1/128"
+            - "fe80::/10"
+            - "fd00::/8"
+            # EXTERNAL HOSTS
+            # - ".../32"

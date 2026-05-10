@@ -19,8 +19,8 @@ labels:
 ---
 # -=[ AppSec Real-time Request Inspection ]=-
 # The Traefik bouncer forwards each HTTP request to this AppSec endpoint for WAF inspection
-# AppSec config: see /etc/crowdsec/appsec-configs/zorg-appsec-config.yaml (mounted below)
-appsec_config: zorg/appsec-config
+# AppSec config: see /etc/crowdsec/appsec-configs/appsec-config.yaml (mounted below)
+appsec_config: custom/appsec-config
 listen_addr: 0.0.0.0:7422
 source: appsec
 labels:
