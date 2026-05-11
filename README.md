@@ -181,7 +181,6 @@ Creat the a folder structure on your host machine that reflects the following:
         │   ├── sendmail/
         │   └── website/
         ├── reverseproxy/
-        ├── reverseproxy-waf/
         ├── mariadb/
         ├── mailserver-smtp/
         ├── irc-server/           <-- ⚠️ Requires: sudo chown -R 1000:1000
