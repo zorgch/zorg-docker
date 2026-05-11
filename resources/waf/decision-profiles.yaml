@@ -1,0 +1,73 @@
+# CrowdSec Profiles Configuration
+# Documentation: https://docs.crowdsec.net/docs/profiles/intro
+#
+# Defines which decisions to apply and which notifications to fire for each alert type.
+# Based on the CrowdSec default profiles, extended with Telegram WAF alerts.
+#
+# Notification plugins referenced here:
+#   - resources/waf/notifications/notification-http.yaml     → telegram_waf_alerts
+#   - resources/waf/notifications/notification-http-immediate.yaml → telegram_waf_blocked
+#   - resources/waf/notifications/notification-email.yaml    → email_waf_alerts
+# (all mounted into the container via the notifications/ directory volume)
+
+# -=[ IP-based remediation ]=-
+# Fires for any alert that targets an individual IP and has remediation=true
+name: default_ip_remediation
+#debug: true
+filters:
+  - Alert.Remediation == true && Alert.GetScope() == "Ip"
+decisions:
+  - type: ban
+    duration: 4h
+notifications:
+  - http_telegram_summary
+  - email_summary
+on_success: break
+
+---
+
+# -=[ IP Range-based remediation ]=-
+# Fires for alerts targeting a CIDR range (e.g. mass-scanning subnets)
+name: default_range_remediation
+#debug: true
+filters:
+  - Alert.Remediation == true && Alert.GetScope() == "Range"
+decisions:
+  - type: ban
+    duration: 4h
+notifications:
+  - http_telegram_summary
+  - email_summary
+on_success: break
+
+---
+
+# -=[ AppSec real-time block alerts for sensitive paths ]=-
+# Fires immediately when AppSec blocks a request to a path that is likely used
+# by authorized users — so a block probably means a false positive.
+#
+# Alert.Remediation == false : request was rejected in-band by AppSec (no IP ban yet)
+# Alert.GetMeta("target_uri") : HTTP request URI populated by AppSec in the alert meta
+#
+# ℹ️  To add more paths, extend the OR chain below.
+name: appsec_block_immediate
+#debug: true
+filters:
+  - >-
+    Alert.Remediation == false && Alert.GetScope() == "Ip" &&
+    (
+      Alert.GetMeta("target_uri") contains "/actions/events.php" ||
+      Alert.GetMeta("target_uri") contains "/actions/comment_edit.php" ||
+      Alert.GetMeta("target_uri") contains "/gallery.php" ||
+      Alert.GetMeta("target_uri") contains "/actions/tpleditor.php" ||
+      Alert.GetMeta("target_uri") contains "/js/ajax/verein_mailer/set-mailtemplate.php" ||
+      Alert.GetMeta("target_uri") contains "/js/ajax/verein_mailer/set-mailsend.php" ||
+      Alert.GetMeta("target_uri") contains "/bugtracker.php" ||
+      Alert.GetMeta("target_uri") contains "/?tpl=96" ||
+      Alert.GetMeta("target_uri") contains "/profil.php" ||
+      Alert.GetMeta("target_uri") contains "/actions/tauschboerse.php" ||
+      Alert.GetMeta("target_uri") contains "/index.php?tpl=162"
+    )
+notifications:
+  - http_telegram_alert
+on_success: break

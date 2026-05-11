@@ -120,7 +120,7 @@ fi
 
 ############ Announcements ###############
 send_telegram_message "$MESSAGE_ANNOUNCE"
-if [ "$SKIP_TIMER" = true ]; then
+if [ "$SKIP_TIMER" = false ]; then
   sleep 600 # Wait now 10 minutes
   send_telegram_message "$MESSAGE_TIMER_T5"
   sleep 297 # Wait now 4 minutes 57 seconds
