@@ -198,8 +198,9 @@ Here's an overview of the underlying Docker images used for the Docker Services,
 | 🔐 `sslcerts`      | `alpine/mkcert`           | [GitHub](https://github.com/alpine-docker/multi-arch-docker-images/tree/master/mkcert) |
 | 📊 `dashboard`     | `portainer/portainer-ce`  | [Docs](https://docs.portainer.io/start/install-ce/server/docker) |
 | 🚨 `servicealerts` | `lorcas/docker-telegram-notifier` | [GitHub](https://github.com/luc-ass/docker-telegram-notifier) |
-| 🚦 `reverseproxy`  | `traefik`                 | [Docs](https://doc.traefik.io/traefik/) |
-| 🛡️ `waf`           | `crowdsecurity/crowdsec`  | [Docs](https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin) |
+| 🚦 `reverseproxy`  | `traefik`<br>`crowdsec-bouncer-traefik-plugin` | [Docs](https://doc.traefik.io/traefik/)<br>[Plugin](https://plugins.traefik.io/plugins/6335346ca4caa9ddeffda116/crowdsec-bouncer-traefik-plugin) |
+| 🛡️ `waf`           | `crowdsecurity/crowdsec`  | [Docs](https://docs.crowdsec.net/u/getting_started/installation/docker/) |
+| ☣️ `waf-dashboard` | `ghcr.io/theduffman85/crowdsec-web-ui` | [GitHub](https://github.com/TheDuffman85/crowdsec-web-ui) |
 | 🌐 `website`       | `php`                     | [Docker Hub](https://hub.docker.com/_/php) |
 | 💽 `db`            | `mariadb`                 | [Docs](https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/) |
 | 👨‍💻 `db-manager`    | `adminer`                 | [Docs](https://hub.docker.com/_/adminer/#how-to-use-this-image) |
@@ -338,6 +339,23 @@ Add these first using the `sslcerts` service:
 
 ```bash
 docker compose --profile setup up
+```
+
+<br>
+
+#### ☣️ WAF Dashboard: register watcher service (one time only)
+
+Generate a password, set it in `.env` as `CROWDSEC_WEBUI_KEY`, then register it on CrowdSec:
+
+1. Generate & save password into .env
+```bash
+openssl rand -hex 32
+# → set as CROWDSEC_WEBUI_KEY in .env
+```
+
+2. Register the service as watcher
+```bash
+docker exec PROJECTNAME-crowdsec cscli machines add crowdsec-web-ui --password "$(grep CROWDSEC_WEBUI_KEY .env | cut -d= -f2)" -f /dev/null
 ```
 
 <br>
@@ -484,10 +502,8 @@ Some single services have their own profile, in order to prevent them from start
 | -------------- | ------------------------------------ | -------------------------------|
 | `all`          | All general services                 | `--profile all`                |
 | `setup`        | `sslcerts` `postfix-smtp`            | `--profile setup`              |
-| `status`       | `servicealerts` `dashboard` `reverseproxy` `waf` | `--profile status`       |
-| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `waf` `website` `db` `db-manager` `postfix-smtp` | `--profile webserver` |
-| `mailserver`   | `servicealerts` `dashboard` `reverseproxy` `waf` `postfix-smtp`  | `--profile mailserver` |
-| `irc`          | `servicealerts` `dashboard` `reverseproxy` `waf` `irc` `irc-quizbot` `irc-telegram-bridge` | `--profile irc` |
+| `status`       | `servicealerts` `dashboard` `reverseproxy` `waf` `waf-dashboard` | `--profile status`       |
+| `webserver`    | `servicealerts` `dashboard` `reverseproxy` `waf` `waf-dashboard` `website` `db` `db-manager` `postfix-smtp` | `--profile webserver` |
 | `keepass`      | `servicealerts` `dashboard` `sftp`   | `--profile keepass` |
 | `quake`        | `servicealerts` `dashboard` `quake3` | `--profile quake`   |
 | `docu`         | `phpdoc`                             | `--profile docu`    |
@@ -523,12 +539,63 @@ zorg-mailserver        0.11%     39.41MiB / 256MiB    15.39%
 ```
 </details>
 
+<br>
 
 ### The Docker Status-Dashboard
 
 The full-fledged Docker Management Dashboard (Portainer) can be accessed at:
 
 * `https://dockerstatus.DOMAINNAME`<br><sub>*Host can be adjusted in the `.env`*</sub>
+
+<br>
+
+### WAF inspection
+
+#### Web UI Dashboard
+
+The WAF Web UI (alerts, decisions, metrics) can be accessed at:
+
+* `https://dockerstatus.DOMAINNAME/waf`<br><sub>*Shares the `DASHBOARD_HOST` subdomain with Portainer — path prefix `/waf` is handled by `BASE_PATH`*</sub>
+
+> [!IMPORTANT]
+> The WAF dashboard is protected by the **IP whitelist** middleware. Access requires your IP to be listed in `ip-whitelist` in [`resources/reverseproxy/middlewares-http.yaml`](resources/reverseproxy/middlewares-http.yaml).
+
+> [!NOTE]
+> **First-time setup:** On first launch the web UI will prompt for CrowdSec LAPI connection details. Use machine ID `crowdsec-web-ui` and the value of `CROWDSEC_WEBUI_KEY` from your `.env`. See [initial setup](#%EF%B8%8F-waf-dashboard-register-watcher-machine-one-time-only) if you haven't registered the machine yet.
+
+#### CLI metrics
+
+Quick overview of parsed log lines, triggered scenarios, active decisions and bouncer activity:
+
+```bash
+docker compose exec zorg-waf cscli metrics
+```
+
+<details>
+<summary>Additional CrowdSec WAF <code>cscli</code> commands</summary>
+
+```bash
+# List active bans/decisions
+docker compose exec waf cscli decisions list
+```
+
+```bash
+# List triggered alerts
+docker compose exec waf cscli alerts list
+```
+
+```bash
+# List registered bouncers (e.g. traefik)
+docker compose exec waf cscli bouncers list
+```
+
+```bash
+# List registered watcher machines (e.g. waf-dashboard)
+docker compose exec waf cscli machines list
+```
+</details>
+
+<br>
 
 <br>
 
