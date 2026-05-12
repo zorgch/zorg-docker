@@ -164,7 +164,7 @@ services:
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - ${REVERSEPROXY_DASHBOARD:+telegram-notifier.service-uri=https://${DOMAINNAME}:8080}
             # -=[ traefik Reverse Proxy Dashboard : routing CONDITIONAL ]=-
-            # ⚠️ Be aware that when disabled, traefik will NOT read any of its service `labels:` !
+            # ⚠️ Be aware that when disabled, traefik will NOT read any of its own service `labels:` !
             - "traefik.enable=${REVERSEPROXY_DASHBOARD:-false}"
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.tls=true}
             - ${REVERSEPROXY_DASHBOARD:+${USE_LETSENCRYPT:+traefik.http.routers.api.tls.certresolver=letsencrypt}}
@@ -261,16 +261,16 @@ services:
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
+            - "telegram-notifier.service-uri=${DASHBOARD_HOST:+https://${DASHBOARD_HOST}.${DOMAINNAME}/waf}"
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             - "traefik.enable=false"
         environment:
+            # 📖 HOWTO https://docs.crowdsec.net/u/getting_started/installation/docker/
             - TZ=${TIMEZONE:-Europe/Zurich}
             - GID=1000
+            - BOUNCER_KEY_traefik=${CROWDSEC_BOUNCER_KEY:-changeme-in-dotenv}
             # ℹ️ Collections: traefik=log parsing, http-cve=CVE coverage, appsec-*=OWASP WAF rules (virtual patching + generic rules)
             - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
-            - BOUNCER_KEY_traefik=${CROWDSEC_BOUNCER_KEY:-changeme-in-dotenv}
-            # ℹ️ Override default: image default is http://0.0.0.0:8080 which is a bind address, not a valid connection target
-            - LOCAL_API_URL=http://127.0.0.1:8080
             # -=[ Notification Settings ]=-
             - DOCKER_STACK=${COMPOSE_PROJECT_NAME:-Docker}
             # -- Telegram Alerts
@@ -290,6 +290,51 @@ services:
             - "${HOST_PATH_WAF_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf}/decision-profiles.yaml:/etc/crowdsec/profiles.yaml:ro"
             - "${HOST_PATH_WAF_NOTIFICATIONS:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf/notifications}:/etc/crowdsec/notifications:ro"
             - "${HOST_PATH_WAF_RULES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf/rules}:/etc/crowdsec/appsec-rules/custom:ro"
+
+    # --- ☣️ WAF Web UI Dashboard ---
+    waf-dashboard:
+        profiles: [ "all", "status", "webserver" ]
+        image: ghcr.io/theduffman85/crowdsec-web-ui:latest
+        platform: ${OS_PLATFORM:-linux/amd64}
+        container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}crowdsec-webui
+        restart: on-failure:1
+        depends_on:
+            - waf
+        cpus: "${REVERSEPROXY_CPU:-0.5}"
+        mem_limit: "${REVERSEPROXY_MEMORY:-512m}"
+        security_opt:
+            - "no-new-privileges:true"
+        networks:
+            - the-grid
+        expose:
+            - "3000/tcp"
+        labels:
+            # -=[ Servicealerting : OFF ]=-
+            - "telegram-notifier.monitor=false"
+            # -=[ traefik Reverse Proxy : routing ON ]=-
+            - "traefik.enable=true"
+            - "traefik.docker.network=${NETWORK_HTTP_SERVICES:-loadbalance-http}"
+            # --- HTTP with SSL/TLS (:443) ---
+            # ℹ️ NOTE Exposed under ${DASHBOARD_HOST}/waf (same host as Docker Services Insights)
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-ssl.tls=true"
+            - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-ssl.tls.certresolver=letsencrypt}
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-ssl.entrypoints=websecure"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-ssl.rule=Host(`${DASHBOARD_HOST}.${DOMAINNAME}`) && PathPrefix(`/waf`)"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-service"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-ssl.middlewares=ip-whitelist@file,contenttype-add@file,compress-gzip@file,securityheaders-add@file"
+            - "traefik.http.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-service.loadbalancer.server.port=3000"
+        environment:
+            # 📖 HOWTO https://github.com/TheDuffman85/crowdsec-web-ui#readme
+            - TZ=${TIMEZONE:-Europe/Zurich}
+            - BASE_PATH=/waf
+            - CROWDSEC_URL=http://waf:8080
+            - CROWDSEC_USER=crowdsec-web-ui
+            - CROWDSEC_PASSWORD=${CROWDSEC_WEBUI_KEY:-}
+            - CROWDSEC_LOOKBACK_PERIOD=504h
+            - CROWDSEC_REFRESH_INTERVAL=1m
+            - CROWDSEC_IDLE_REFRESH_INTERVAL=10m
+        volumes:
+            - wafdashboard-files:/app/data
 
     #----------------------
     # 🌐 Apache-PHP Website
@@ -966,6 +1011,8 @@ volumes:
     waf-config:
         external: false
     waf-db:
+        external: false
+    wafdashboard-files:
         external: false
     website-files:
         driver: local
