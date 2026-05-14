@@ -1,0 +1,606 @@
+# Example configuration file for Ergo IRCd.
+# 📖 HOWTO https://github.com/ergochat/ergo/blob/stable/docs/MANUAL.md
+#
+# Copy this file and the accompanying ircd.motd to your server's config directory
+# (HOST_PATH_IRC_IRCD_CONFIG_FILES) and adjust the values marked with ⚠️.
+#
+# Required steps before first start:
+#   1. Set network.name and server.name to match your domain.
+#   2. Add at least one oper block (see below).
+#   3. Generate a bcrypt password hash for each oper:
+#        docker run --rm ghcr.io/ergochat/ergo:stable genpasswd
+#   4. Set the email sender address and MTA host for account registration emails.
+#
+# Allows overriding any config value via ERGO__SECTION__KEY environment variables at runtime.
+# e.g. ERGO__NETWORK__NAME="My Network" (useful for secrets like oper passwords in Docker)
+allow-environment-overrides: true
+
+# ===[ Logging ]===
+logging:
+    -   method: file
+        filename: /ircd/logs/ircd.log
+        type: "* -userinput -useroutput"
+        level: warn
+
+# ===[ Network ]===
+# ⚠️ Set to your network's human-readable name — overridden at runtime by ERGO__NETWORK__NAME (IRC_NETWORK_NAME in .env)
+network:
+    name: "zdocker-irc"
+
+# ===[ Server ]===
+server:
+    # ⚠️ Set to the public hostname of this IRC server — overridden at runtime by ERGO__SERVER__NAME (IRC_HOST + DOMAINNAME in .env)
+    name: irc.zdocker.dev
+
+    # The hostname used by "services", e.g., NickServ, defaults to "localhost",
+    # e.g., `NickServ!NickServ@localhost`. uncomment this to override:
+    override-services-hostname: "irc-services"
+
+    motd: ircd.motd
+    motd-formatting: true
+
+    listeners:
+        # Plaintext IRC on all interfaces (required for TCP passthrough)
+        ":6667": {}
+        # TLS IRC — Ergo terminates TLS directly using the mounted certificate
+        ":6697":
+            tls:
+                cert: /ircd/certs/fullchain.cert
+                key: /ircd/certs/privkey.key
+            min-tls-version: 1.2
+
+    # -- STS (Strict Transport Security) --
+    # advertises to connecting clients that they should automatically use TLS
+    # (currently disabled since a plaintext :6667 listener is retained for TCP passthrough;
+    # to stop advertising STS, leave enabled: true and set duration to "0")
+    sts:
+        # whether to advertise STS
+        enabled: false
+
+        # how long clients should be forced to use TLS for.
+        # setting this to a too-long time will mean bad things if you later remove your TLS.
+        # the default duration below is 1 month, 2 days and 5 minutes.
+        duration: 1mo2d5m
+
+        # tls port - you should be listening on this port above
+        # ⚠️ Can be overridden by ERGO__SERVER__STS__PORT (IRC_PORT_SSL in .env)
+        port: 6697
+
+        # should clients include this STS policy when they ship their inbuilt preload lists?
+        preload: false
+
+    # Treat connections from private/internal networks as secure (no TLS required).
+    secure-nets:
+        # IPv4 - HOST
+        - "127.0.0.1/32"   # localhost
+        - "192.168.0.0/12" # local IPs (192.168.)
+        - "172.16.0.0/12"  # Docker bridge networks (172.16-172.31)
+        - "10.0.0.0/8"     # Internal private network (10.x)
+        # IPv6 - HOST
+        - "::1/128"        # localhost
+        - "fe80::/10"      # Docker Link-local
+        - "fd00::/8"       # Docker IPv6 default range
+
+    # -- IP-based DoS protection --
+    # ℹ️ Limits are raised from defaults; localhost is exempted for SSH-connected users
+    ip-limits:
+        # whether to limit the total number of concurrent connections per IP/CIDR
+        count: true
+
+        # maximum concurrent connections per IP/CIDR
+        max-concurrent-connections: 16
+
+        # whether to restrict the rate of new connections per IP/CIDR
+        throttle: true
+
+        # how long to keep track of connections for
+        window: 10m
+
+        # maximum number of new connections per IP/CIDR within the given duration
+        max-connections-per-window: 32
+
+        # how wide the CIDR should be for IPv4 (a /32 is a fully specified IPv4 address)
+        cidr-len-ipv4: 32
+
+        # how wide the CIDR should be for IPv6 (a /64 is the typical prefix assigned
+        # by an ISP to an individual customer for their LAN)
+        cidr-len-ipv6: 64
+
+        # IPs/networks which are exempted from connection limits
+        # ℹ️ localhost must be exempted: many users connect via SSH directly on the server
+        exempted:
+            - "localhost"
+            # - "192.168.1.1"
+            # - "2001:0db8::/32"
+
+    casemapping: "ascii"
+    enforce-utf8: true
+    lookup-hostnames: false
+    forward-confirm-hostnames: false
+
+    # -- IP cloaking --
+    # ℹ️ IP cloaking hides users' real IPs behind a deterministic fake hostname.
+    ip-cloaking:
+        enabled: true
+        enabled-for-always-on: true
+        # ⚠️ Set to your network name or TLD, e.g. "zorg-irc" → a1b2c3d4.zorg-irc
+        netname: "irc"
+        num-bits: 64
+        cidr-len-ipv4: 32
+        cidr-len-ipv6: 64
+
+    max-sendq: "1M"
+
+    # -- Idle timeouts for inactive clients --
+    idle-timeouts:
+        # give the client this long to complete connection registration (i.e. the initial
+        # IRC handshake, including capability negotiation and SASL)
+        registration: 60s
+        # if the client hasn't sent anything for this long, send them a PING
+        ping: 1m30s
+        # if the client hasn't sent anything for this long (including the PONG to the
+        # above PING), disconnect them
+        disconnect: 2m30s
+
+    # -- Relaying using the RELAYMSG command --
+    relaymsg:
+        # is relaymsg enabled at all?
+        enabled: true
+
+        # which character(s) are reserved for relayed nicks?
+        separators: "/"
+
+        # can channel operators use RELAYMSG in their channels?
+        # our implementation of RELAYMSG makes it safe for chanops to use without the
+        # possibility of real users being silently spoofed
+        available-to-chanops: true
+
+    # -- WEBIRC (controls use of the WEBIRC command by IRC<->web interfaces, bouncers) --
+    # ℹ️ Uncomment and configure if a web IRC gateway or bouncer uses WEBIRC
+    #webirc:
+    #    # one webirc block -- should correspond to one set of gateways
+    #    -
+    #        # SHA-256 fingerprint of the TLS certificate the gateway must use to connect
+    #        # (comment this out to use passwords only)
+    #        certfp: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+    #
+    #        # password the gateway uses to connect, made with `docker exec -ti PROJECTNAME-ircdserver /ircd-bin/ergo genpasswd`
+    #        password: "<hash-from-genpasswd>"
+    #
+    #        # IPs/CIDRs that can use this webirc command
+    #        # you should also add these addresses to the connection limits and throttling exemption lists
+    #        hosts:
+    #            - localhost
+    #            # - "192.168.1.1"
+    #            # - "192.168.10.1/24"
+    #
+    #        # whether to accept the hostname parameter on the WEBIRC line as the IRC hostname
+    #        accept-hostname: true
+
+    # compatibility with legacy clients
+    compatibility:
+        # many clients require that the final parameter of certain messages be an
+        # RFC1459 trailing parameter, i.e., prefixed with :, whether or not this is
+        # actually required. this forces Ergo to send those parameters
+        # as trailings. this is recommended unless you're testing clients for conformance;
+        # defaults to true when unset for that reason.
+        force-trailing: true
+
+        # some clients (ZNC 1.6.x and lower, Pidgin 2.12 and lower) do not
+        # respond correctly to SASL messages with the server name as a prefix:
+        # https://github.com/znc/znc/issues/1212
+        # this works around that bug, allowing them to use SASL.
+        send-unprefixed-sasl: true
+
+        # traditionally, IRC servers will truncate and send messages that are
+        # too long to be relayed intact. this behavior can be disabled by setting
+        # allow-truncation to false, in which case Ergo will reject the message
+        # and return an error to the client. (note that this option defaults to true
+        # when unset.)
+        allow-truncation: true
+
+# debug options
+debug:
+    # when enabled, Ergo will attempt to recover from certain kinds of
+    # client-triggered runtime errors that would normally crash the server.
+    # this makes the server more resilient to DoS, but could result in incorrect
+    # behavior. deployments that would prefer to "start from scratch", e.g., by
+    # letting the process crash and auto-restarting it with systemd, can set
+    # this to false.
+    # ⚠️ Can be overridden by ERGO__DEBUG__RECOVER-FROM-ERRORS (IRC_DEBUG_RECOVER_FROM_ERRORS in .env)
+    recover-from-errors: true
+
+# Lock file to prevent accidental double-start (relative to working dir /ircd)
+lock-file: "ircd.lock"
+
+# ===[ Limits ]===
+limits:
+    # nicklen is the max nick length allowed
+    nicklen: 32
+
+    # identlen is the max ident length allowed
+    identlen: 20
+
+    # realnamelen is the maximum realname length allowed
+    realnamelen: 150
+
+    # channellen is the max channel length allowed
+    channellen: 64
+
+    # awaylen is the maximum length of an away message
+    awaylen: 390
+
+    # kicklen is the maximum length of a kick message
+    kicklen: 390
+
+    # topiclen is the maximum length of a channel topic
+    topiclen: 390
+
+    # maximum number of monitor entries a client can have
+    monitor-entries: 100
+
+    # whowas entries to store
+    whowas-entries: 100
+
+    # maximum length of channel lists (beI modes)
+    chan-list-modes: 100
+
+    # maximum number of messages to accept during registration (prevents
+    # DoS / resource exhaustion attacks):
+    registration-messages: 1024
+
+    # message length limits for the new multiline cap
+    multiline:
+        max-bytes: 4096 # 0 means disabled
+        max-lines: 100  # 0 means no limit
+
+
+# ===[ Languages ]===
+#languages:
+    # whether to load languages
+    #enabled: false
+
+    # default language to use for new clients
+    # 'en' is the default English language in the code
+    #default: en
+
+    # which directory contains our language files
+    #path: /path/to/languages
+
+# ===[ Fakelag ]===
+# prevents clients from spamming commands too rapidly
+fakelag:
+    # whether to enforce fakelag
+    enabled: true
+
+    # time unit for counting command rates
+    window: 1s
+
+    # clients can send this many commands without fakelag being imposed
+    burst-limit: 5
+
+    # once clients have exceeded their burst allowance, they can send only
+    # this many commands per `window`:
+    messages-per-window: 2
+
+    # client status resets to the default state if they go this long without
+    # sending any commands:
+    cooldown: 2s
+
+    # exempt a certain number of command invocations per session from fakelag;
+    # this is to speed up "resynchronization" of client state during reattach
+    command-budgets:
+        "CHATHISTORY": 16
+        "MARKREAD":    16
+        "MONITOR":     1
+        "WHO":         4
+        "WEBPUSH":     1
+
+# ===[ Data Store ]===
+datastore:
+    # Main DB: account and channel registrations (relative to working dir /ircd)
+    path: ircd.db
+    autoupgrade: true
+    # SQLite for persistent message history (relative to working dir /ircd)
+    sqlite:
+        enabled: true
+        database-path: message_history.db
+        busy-timeout: 5s
+        max-conns: 1
+
+# ===[ Accounts ]===
+accounts:
+    authentication-enabled: true
+
+    registration:
+        enabled: true
+        allow-before-connect: true
+        throttling:
+            enabled: true
+            duration: 10m
+            max-attempts: 30
+        bcrypt-cost: 4
+        verify-timeout: "72h"
+        # -- Email verification via internal postfix-smtp container.
+        # ⚠️ Bot/service accounts (quizbot, telegram bridge, etc.) cannot self-register when this is enabled.
+        #    An oper must run: (SAREGISTER bypasses email verification and requires the `accreg` capability)
+        #      /msg NickServ SAREGISTER <nick> <pass>
+        email-verification:
+            enabled: true
+            require-tls: false
+
+            # ⚠️ Can be overridden by ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__SENDER (IRC_EMAIL_SENDER in .env)
+            sender: "irc@zdocker.dev"
+
+            # ⚠️ Can be overridden by ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__HELO-DOMAIN (DOMAINNAME in .env)
+            helo-domain: "zdocker.dev"
+            mta:
+                # ⚠️ Can be overridden by ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__MTA__SERVER (IRC_SMTP_HOST in .env)
+                server: postfix-smtp
+                # ⚠️ Can be overridden by ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__MTA__PORT (IRC_SMTP_PORT in .env)
+                port: 25
+                implicit-tls: false
+                #username: ""
+                #password: ""
+
+    # -- Login throttling --
+    # throttle account login attempts (to prevent either password guessing, or DoS
+    # attacks on the server aimed at forcing repeated expensive bcrypt computations)
+    login-throttling:
+        enabled: true
+
+        # window
+        duration: 1m
+
+        # number of attempts allowed within the window
+        max-attempts: 5
+
+    # -- Nick reservation --
+    # ℹ️ Users must authenticate (SASL/PASS) before using a registered nick.
+    nick-reservation:
+        # is there any enforcement of reserved nicknames?
+        enabled: true
+
+        # method describes how nickname reservation is handled
+        #   strict:   users must already be logged in to their account (via
+        #             SASL, PASS account:password, or /NickServ IDENTIFY)
+        #             in order to use their reserved nickname(s)
+        #   optional: no enforcement by default, but allow users to opt in to
+        #             the enforcement level of their choice
+        method: optional
+
+        # allow users to set their own nickname enforcement status, e.g.,
+        # to opt out of strict enforcement
+        allow-custom-enforcement: true
+        force-nick-equals-account: false
+
+        # parallel setting to force-nick-equals-account: if true, this forbids
+        # anonymous users (i.e., users not logged into an account) to change their
+        # nickname after the initial connection is complete
+        forbid-anonymous-nick-changes: false
+
+        # how many nicknames, in addition to the account name, can be reserved?
+        # (note that additional nicks are unusable under force-nick-equals-account
+        # or if the client is always-on)
+        additional-nick-limit: 0
+
+        # when enabled, forces users not logged into an account to use
+        # a nickname matching the guest template. a caveat: this may prevent
+        # users from choosing nicknames in scripts different from the guest
+        # nickname format.
+        #guest-nickname-format: "zorger-*"
+        #force-guest-format: false
+
+    # -- Multiclient / bouncer mode --
+    # ℹ️ Multiple connections share one persistent identity.
+    multiclient:
+        enabled: true
+        allowed-by-default: true
+
+        # whether to allow clients that remain on the server even
+        # when they have no active connections. The possible values are:
+        # "disabled", "opt-in", "opt-out", or "mandatory".
+        always-on: "opt-out"
+
+        # whether to mark always-on clients away when they have no active connections:
+        auto-away: "opt-out"
+
+        # QUIT always-on clients from the server if they go this long without connecting
+        # (use 0 or omit for no expiration):
+        #always-on-expiration: 90d
+
+    # -- Virtual hosts (vhosts) --
+    # ℹ️ Users can request a custom hostname to be displayed instead of their real IP.
+    vhosts:
+        enabled: true
+        max-length: 64
+        valid-regexp: '^[0-9A-Za-z.\-_/]+$'
+
+# ===[ Channels ]===
+channels:
+    # modes that are set when new channels are created
+    # +n is no-external-messages and +t is op-only-topic
+    # see  /QUOTE HELP cmodes  for more channel modes
+    # ⚠️ Can be overridden by ERGO__CHANNELS__DEFAULT-MODES (IRC_CHANNELS_DEFAULT_MODES in .env)
+    default-modes: +ntC
+    max-channels-per-client: 100
+    operator-only-creation: false
+
+    # channel registration - requires an account
+    registration:
+        enabled: true
+        operator-only: false
+        max-channels-per-account: 15
+
+    # channels that new clients will automatically join. this should be used with
+    # caution, since traditional IRC users will likely view it as an antifeature.
+    # it may be useful in small community networks that have a single "primary" channel:
+    #auto-join:
+    #    - "#zooomclan"
+
+    # as a crude countermeasure against spambots, anonymous connections younger
+    # than this value will get an empty response to /LIST (a time period of 0 disables)
+    list-delay: 30s
+
+    # INVITE to an invite-only channel expires after this amount of time
+    # (0 or omit for no expiration):
+    invite-expiration: 168h
+
+# ===[ Message History ]===
+# 💡 Persisted IRC chat messages history stored in SQLite (configured in datastore.sqlite)
+history:
+    # should we store messages for later playback?
+    enabled: true
+
+    # if the in-memory backend is enabled for a channel, how many channel-specific events
+    # (messages, joins, parts) should be retained?
+    channel-length: 5048
+
+    # if the in-memory backend is enabled for a user, how many direct messages
+    # and notices should be retained?
+    # ⚠️ Can be overridden by ERGO__HISTORY__CLIENT-LENGTH (IRC_HISTORY_CLIENT_LENGTH in .env)
+    client-length: 256
+
+    # how long should we try to preserve messages?
+    # if `autoresize-window` is 0, the in-memory message buffers are preallocated to
+    # their maximum length. if it is nonzero, the buffers are initially small and
+    # are dynamically expanded up to the maximum length. if the buffer is full
+    # and the oldest message is older than `autoresize-window`, then it will overwrite
+    # the oldest message rather than resize; otherwise, it will expand if possible.
+    # ⚠️ Can be overridden by ERGO__HISTORY__AUTORESIZE-WINDOW (IRC_HISTORY_AUTORESIZE_WINDOW in .env)
+    autoresize-window: 365d
+
+    # number of messages to automatically play back on channel join (0 to disable):
+    # ⚠️ Can be overridden by ERGO__HISTORY__AUTOREPLAY-ON-JOIN (IRC_HISTORY_AUTOREPLAY_ON_JOIN in .env)
+    autoreplay-on-join: 25
+
+    # maximum number of CHATHISTORY messages that can be
+    # requested at once (0 disables support for CHATHISTORY)
+    chathistory-maxmessages: 256
+
+    # maximum number of messages that can be replayed at once during znc emulation
+    # (znc.in/playback, or automatic replay on initial reattach to a persistent client):
+    znc-maxmessages: 256
+
+    # options to delete old messages, or prevent them from being retrieved
+    restrictions:
+        # if this is set, messages older than this cannot be retrieved by anyone
+        # (and will eventually be deleted from persistent storage, if that's enabled)
+        expire-time: 51w
+
+        # this restricts access to channel history (it can be overridden by channel
+        # owners). options are: 'none' (no restrictions), 'registration-time'
+        # (logged-in users cannot retrieve messages older than their account
+        # registration date, and anonymous users cannot retrieve messages older than
+        # their sign-on time, modulo the grace-period described below), and
+        # 'join-time' (users cannot retrieve messages older than the time they
+        # joined the channel, so only always-on clients can view history).
+        query-cutoff: "none"
+
+        # if query-cutoff is set to 'registration-time', this allows retrieval
+        # of messages that are up to 'grace-period' older than the above cutoff.
+        # if you use 'registration-time', this is recommended to allow logged-out
+        # users to query history after disconnections.
+        #grace-period: 72h
+
+    # options to store history messages in a persistent database (currently only MySQL).
+    # in order to enable any of this functionality, you must configure a MySQL server
+    # in the `datastore.mysql` section. enabling persistence overrides the history
+    # size limits above (`channel-length`, `client-length`, etc.); persistent
+    # history has no limits other than those imposed by expire-time.
+    persistent:
+        enabled: true
+
+        # store unregistered channel messages in the persistent database?
+        unregistered-channels: false
+
+        # for a registered channel, the channel owner can potentially customize
+        # the history storage setting. as the server operator, your options are
+        # 'disabled' (no persistent storage, regardless of per-channel setting),
+        # 'opt-in', 'opt-out', and 'mandatory' (force persistent storage, ignoring
+        # per-channel setting):
+        registered-channels: "opt-out"
+
+        # direct messages are only stored in the database for logged-in clients;
+        # you can control how they are stored here (same options as above).
+        # if you enable this, strict nickname reservation is strongly recommended
+        # as well.
+        direct-messages: "opt-out"
+
+    # options to control how messages are stored and deleted:
+    retention:
+        # ⚠️ Can be overridden by ERGO__HISTORY__RETENTION__ALLOW-INDIVIDUAL-DELETE (IRC_HISTORY_ALLOW_INDIVIDUAL_DELETE in .env)
+        allow-individual-delete: false
+        enable-account-indexing: false
+
+    # options to control storage of TAGMSG
+    tagmsg-storage:
+        default: false
+        whitelist:
+            - "+draft/react"
+            - "+react"
+
+# ===[ Web Push Notifications ]===
+# 💡 Experimental push notifications via the draft/webpush IRCv3 spec
+# ⚠️ Set subscriber to your website URL — overridden at runtime by ERGO__WEBPUSH__SUBSCRIBER (https:// + DOMAINNAME in .env)
+webpush:
+    enabled: true
+    max-subscriptions: 4
+    timeout: 10s
+    delay: 1s
+    expiration: 14d
+    subscriber: "https://zdocker.dev/"
+
+# ===[ Oper Classes ]===
+# 💡 "server-admin" & "chat-moderator" are built-in classes; add more or extend as needed.
+oper-classes:
+    "chat-moderator":
+        title: Chat Moderator
+        capabilities:
+            - "kill"         # disconnect user sessions
+            - "ban"          # ban IPs, CIDRs, NUH masks, and suspend accounts (UBAN / DLINE / KLINE)
+            - "nofakelag"    # exempted from "fakelag" restrictions on rate of message sending
+            - "relaymsg"     # use RELAYMSG in any channel (see the `relaymsg` config block)
+            - "vhosts"       # add and remove vhosts from users
+            - "sajoin"       # join arbitrary channels, including private channels
+            - "samode"       # modify arbitrary channel and user modes
+            - "snomasks"     # subscribe to arbitrary server notice masks
+            - "roleplay"     # use the (deprecated) roleplay commands in any channel
+
+    "server-admin":
+        title: Server Admin
+        extends: "chat-moderator"
+        capabilities:
+            - "rehash"       # rehash the server, i.e. reload the config at runtime
+            - "accreg"       # modify arbitrary account registrations
+            - "chanreg"      # modify arbitrary channel registrations
+            - "history"      # modify or delete history messages
+            - "defcon"       # use the DEFCON command (restrict server capabilities)
+            - "massmessage"  # message all users on the server
+            - "metadata"     # modify arbitrary metadata on channels and users
+
+# ===[ Opers ]===
+# ⚠️ Add one block per IRC operator. Passwords must be bcrypt hashes:
+#      docker exec -ti PROJECTNAME-ircdserver /ircd-bin/ergo genpasswd
+#
+# 💡 Note that the config changes are AUTOMATICALLY applied upon modifying, aka "Rehashing":
+#   https://github.com/ergochat/ergo/blob/stable/docs/MANUAL.md#rehashing
+#
+# Example operator (server administrator):
+#opers:
+#    alice:
+#        class: "server-admin"
+#        hidden: false
+#        whois-line: "is a Server Administrator"
+#        vhost: "netadmin.irc.zdocker.dev"
+#        password: "<hash-from-genpasswd>"
+#        modes: +is acdjknoqtuxv
+#
+# Example moderator:
+#    bob:
+#        class: "chat-moderator"
+#        hidden: false
+#        whois-line: "is a Moderator"
+#        vhost: "moderator.irc.zdocker.dev"
+#        password: "<hash-from-genpasswd>"
+#        modes: +i

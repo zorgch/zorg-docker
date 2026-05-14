@@ -141,26 +141,9 @@ Creat the a folder structure on your host machine that reflects the following:
     ├── mailserver/        <-- (Optional) To further customize Postfix SMTP. Reference in .env
     │   └── postfix-main.cf
     |
-    ├── irc/
-    │   ├── anope-configs/    <-- Copy & adjust "irc/anope-example-sensitive-includes" from repo
-    │   │   ├── sensitive-channels.conf
-    │   │   ├── sensitive-mail.conf
-    │   │   ├── sensitive-networkinfo.conf
-    │   │   ├── sensitive-nicknames.conf
-    │   │   ├── sensitive-operators.conf
-    │   │   ├── sensitive-serverinfo.conf
-    │   │   ├── sensitive-uplink.conf
-    │   │   └── services.motd
-    │   └── ircd-configs/     <-- Copy & adjust "irc/unrealircd-example-sensitive-includes" from repo
-    │       ├── ircd.motd
-    │       ├── sensitive-admin.conf
-    │       ├── sensitive-history.conf
-    │       ├── sensitive-me.conf
-    │       ├── sensitive-network.conf
-    │       ├── sensitive-operators.conf
-    │       ├── sensitive-server.conf
-    │       ├── sensitive-servicelink.conf
-    │       └── ssl/
+    ├── irc/                  <-- IRC server config files (path set in .env as HOST_PATH_IRC_IRCD_CONFIG_FILES)
+    │   ├── ircd.yaml         <-- Copy & adjust "resources/irc/ircd.yaml" from repo (⚠️ add opers block!)
+    │   └── ircd.motd         <-- Copy & adjust "resources/irc/ircd.motd" from repo
     │
     ├── code-docu/
     │   ├── code/       <-- (Optional) Git clone of github.com/zorgch/zorg-code.git. Reference in .env
@@ -183,7 +166,7 @@ Creat the a folder structure on your host machine that reflects the following:
         ├── reverseproxy/
         ├── mariadb/
         ├── mailserver-smtp/
-        ├── irc-server/           <-- ⚠️ Requires: sudo chown -R 1000:1000
+        ├── irc-server/
         ├── sftp/
         └── quake3-server/
 ```
@@ -205,7 +188,7 @@ Here's an overview of the underlying Docker images used for the Docker Services,
 | 💽 `db`            | `mariadb`                 | [Docs](https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/) |
 | 👨‍💻 `db-manager`    | `adminer`                 | [Docs](https://hub.docker.com/_/adminer/#how-to-use-this-image) |
 | 📧 `postfix-smtp`  | `mailserver/docker-mailserver` | [Docs](https://docker-mailserver.github.io/docker-mailserver/) |
-| 💬 `irc`           | `c0dy/unrealircd-anope`   | [Docker Hub](https://hub.docker.com/r/c0dy/unrealircd-anope) |
+| 💬 `irc`           | `ghcr.io/ergochat/ergo`   | [GitHub](https://github.com/ergochat/ergo) |
 | 🧩 `irc-quizbot`   | `python:3-slim`           | [GitHub](https://github.com/zorgch/irc-quizbot) |
 | 🕊️ `irc-telegram-bridge` | `bhavin192/teleirc`    | [Docker Hub](https://hub.docker.com/r/bhavin192/teleirc) |
 | 📈 `stockticker`   | `python:3-slim`           | [GitHub](https://github.com/zorgch/zorg-docker/tree/dev/resources/python/stockticker) |
@@ -330,6 +313,30 @@ docker network create loadbalance-udp
 docker compose build
 ```
 
+#### ⏩ Update the local cloned `zorg-docker` git repository
+cd into the directory containing the locally cloned git files, and run a git pull:
+
+```bash
+cd /srv/<my-website>/<host>/zorg-docker
+git pull --rebase
+```
+
+> [!IMPORTANT]
+> Check the updated Files and apply necessary changes to outdated manual copies of the same!
+
+- Example:
+
+```bash
+Fast-forward
+ .env.example                                 |  17 +++++--------
+ docker-compose.yml                           |  75 ++++++++++++++++++++++++++++++++++++-------------------
+ resources/irc/unrealircd/unrealircd.conf     |  12 ++++-----
+ resources/mailserver/postfix-main.cf         |   4 +--
+ resources/reverseproxy/middlewares-http.yaml | 166 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--------------------------
+ resources/reverseproxy/selfsigned-certs.yaml |  23 ++++++++---------
+ 6 files changed, 207 insertions(+), 90 deletions(-)
+```
+
 <br>
 
 #### 🔐 TLS/SSL: generate self-signed certificates
@@ -363,7 +370,7 @@ docker exec PROJECTNAME-crowdsec cscli machines add crowdsec-web-ui --password "
 #### 📧 Mailserver (SMTP) configuration
 
 > [!NOTE]
-> This requires the mailserver service to be running!
+> This requires the mailserver `postfix-smtp` service to be running!
 
 ##### Add postfix accounts & email forwarding
 
@@ -386,28 +393,77 @@ docker exec -ti PROJECTNAME-mailserver setup config dkim help
 
 <br>
 
-### ⏩ Update the local cloned `zorg-docker` git repository
-cd into the directory containing the locally cloned git files, and run a git pull:
+#### 💬 IRC server setup
+
+> [!NOTE]
+> This requires the `irc` service to be running!
+
+Copy the template config from the repo to your `HOST_PATH_IRC_IRCD_CONFIG_FILES` directory and add at least one `opers:` block with a bcrypt password hash:
 
 ```bash
-cd /srv/<my-website>/<host>/zorg-docker
-git pull --rebase
+# Generate a bcrypt hash for each oper password:
+docker exec -ti PROJECTNAME-ircdserver /ircd-bin/ergo genpasswd
 ```
 
-> [!IMPORTANT]
-> Check the updated Files and apply necessary changes to outdated manual copies of the same!
+Then add `opers:` to the `ircd.yaml` config-file:
 
-- Example:
+```yaml
+opers:
+    nickname:
+        class: "server-admin"
+        password: "<hash-from-genpasswd>"
+        modes: +is
+```
 
-```bash
-Fast-forward
- .env.example                                 |  17 +++++--------
- docker-compose.yml                           |  75 ++++++++++++++++++++++++++++++++++++-------------------
- resources/irc/unrealircd/unrealircd.conf     |  12 ++++-----
- resources/mailserver/postfix-main.cf         |   4 +--
- resources/reverseproxy/middlewares-http.yaml | 166 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--------------------------
- resources/reverseproxy/selfsigned-certs.yaml |  23 ++++++++---------
- 6 files changed, 207 insertions(+), 90 deletions(-)
+##### Nickname registration & email-verification (by email verification)
+
+Connect to the IRC server and register your nickname, to oper with it:
+
+> [!NOTE]
+> Once you've registered, you'll need to **set up SASL to login**!.
+
+```
+/msg NickServ REGISTER <password> <email>
+# Check email with verification code
+/MSG NickServ VERIFY <nickname> <verification-code>
+/OPER yourname <password>
+```
+
+##### Channel registration
+
+Connect to the IRC server authenticated with your nickname, then oper and register a channel:
+
+```
+/OPER yourname <password>
+/msg ChanServ REGISTER <#channel>
+```
+
+Regain Ops on a registered channel:
+
+```
+/msg ChanServ OP <#channel>
+```
+
+Give someone else OP mode or so, for a channel:
+
+```
+/msg ChanServ AMODE <#channel> <modes> <accountname>
+
+# For example, AMODE #channel +o dan grants the holder of the "dan"
+# account the +o operator mode every time they join #channel. To list current
+# accounts and modes, use: /msg ChanServ AMODE #channel
+# Note that users are always referenced by their registered account names
+# not their nicknames.
+```
+
+##### Bot/service accounts registration (bypasses email verification)
+
+Connect to the IRC server, and oper yourself:
+
+```
+/OPER <nickname> <password>
+/msg NickServ SAREGISTER quizhans <password>
+/msg NickServ SAREGISTER telegram <password>
 ```
 
 <br><br>
@@ -502,8 +558,9 @@ Some single services have their own profile, in order to prevent them from start
 | -------------- | ------------------------------------ | -------------------------------|
 | `all`          | All general services                 | `--profile all`                |
 | `setup`        | `sslcerts` `postfix-smtp`            | `--profile setup`              |
-| `status`       | `servicealerts` `dashboard` `reverseproxy` `waf` `waf-dashboard` | `--profile status`       |
+| `status`       | `servicealerts` `dashboard` `reverseproxy` `waf` `waf-dashboard` | `--profile status` |
 | `webserver`    | `servicealerts` `dashboard` `reverseproxy` `waf` `waf-dashboard` `website` `db` `db-manager` `postfix-smtp` | `--profile webserver` |
+| `irc`          | `servicealerts` `dashboard` `reverseproxy` `waf` `irc` `irc-quizbot` `irc-telegram-bridge` | `--profile irc` |
 | `keepass`      | `servicealerts` `dashboard` `sftp`   | `--profile keepass` |
 | `quake`        | `servicealerts` `dashboard` `quake3` | `--profile quake`   |
 | `docu`         | `phpdoc`                             | `--profile docu`    |
@@ -694,7 +751,7 @@ Contains site specific resources that are actively mapped from the Host to some 
 <details>
 <summary>Examples of example files</summary>
 
-* `irc/anope-example-*` & `irc/unrealircd-example-*` --> MUST be adapted
+* `irc/ircd.yaml` → copy to `HOST_PATH_IRC_IRCD_CONFIG_FILES`, then add `opers:` block with bcrypt hashes
 * `website/apache/example.conf` --> use as `apache.conf`
 * `website/php/example.crontab` --> use as `crontab`
 * `website/sendmail/example-msmtprc` --> use as `msmtprc`
@@ -729,7 +786,7 @@ mysqldump -h <db.host.domain> -P 3306 -u MYSQL_USER -p MYSQL_DATABASE > /path/to
 
 ## ⚖️ License
 
-> Copyright (C) 2024-2025  zorg Verein <https://github.com/zorgch>
+> Copyright (C) 2024-2026  zorg Verein <https://github.com/zorgch>
 >
 >   This program is free software: you can redistribute it and/or modify
 > it under the terms of the GNU General Public License as published by

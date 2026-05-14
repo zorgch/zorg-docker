@@ -641,8 +641,8 @@ services:
     #--------------
     irc:
         profiles: [ "all", "irc" ]
-        image: c0dy/unrealircd-anope
-        platform: linux/amd64 # ℹ️ Has no arm64 support
+        platform: ${OS_PLATFORM:-linux/amd64}
+        image: ghcr.io/ergochat/ergo:stable
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}ircdserver
         restart: on-failure:3
         cpus: "${IRC_CPU:-0.5}"
@@ -656,10 +656,8 @@ services:
             - "6667/tcp" # ℹ️ Unencrypted default IRC Port
             - "6697/tcp" # ℹ️ SSL/TLS encrypted IRC Port
         healthcheck:
-            test: |
-                ss -ln | grep -q '6667' ||
-                exit 1
-            start_period: 10s
+            test: ["CMD", "nc", "-z", "localhost", "6667"]
+            start_period: 15s
             interval: 15s
             timeout: 5s
             retries: 5
@@ -688,29 +686,37 @@ services:
             - ${USE_LETSENCRYPT:-traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service.loadbalancer.server.port=6697}
             - ${USE_LETSENCRYPT:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service.loadbalancer.server.port=6667}
         environment:
-            - TERM=xterm
-            - HOME=/home/ircd
             - TZ=${TIMEZONE:-Europe/Zurich}
+            # -=[ IRCd Settings Overrides ]=-
+            - "ERGO__NETWORK__NAME=${IRC_NETWORK_NAME:-}"
+            - "ERGO__SERVER__NAME=${IRC_HOST}.${DOMAINNAME}"
+            - "ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__SENDER=${IRC_EMAIL_SENDER:-}"
+            - "ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__HELO-DOMAIN=${DOMAINNAME:-}"
+            - "ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__MTA__SERVER=${IRC_SMTP_HOST:-postfix-smtp}"
+            - "ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__MTA__PORT=${IRC_SMTP_PORT:-25}"
+            - "ERGO__WEBPUSH__SUBSCRIBER=https://${DOMAINNAME}"
+            - "ERGO__CHANNELS__DEFAULT-MODES=${IRC_CHANNELS_DEFAULT_MODES:-+nt}"
+            - "ERGO__SERVER__STS__PORT=${IRC_PORT_SSL:-6697}"
+            - "ERGO__HISTORY__CLIENT-LENGTH=${IRC_HISTORY_CLIENT_LENGTH:-256}"
+            - "ERGO__HISTORY__AUTORESIZE-WINDOW=${IRC_HISTORY_AUTORESIZE_WINDOW:-30d}"
+            - "ERGO__HISTORY__AUTOREPLAY-ON-JOIN=${IRC_HISTORY_AUTOREPLAY_ON_JOIN:-0}"
+            - "ERGO__HISTORY__RETENTION__ALLOW-INDIVIDUAL-DELETE=${IRC_HISTORY_ALLOW_INDIVIDUAL_DELETE:-false}"
+            - "ERGO__DEBUG__RECOVER-FROM-ERRORS=${IRC_DEBUG_RECOVER_FROM_ERRORS:-false}"
         init: true
-        tty: true
-        entrypoint: ["/bin/bash", "/usr/local/bin/setup.sh"]
         volumes:
-            - sslcerts-files:/home/certs:ro # :ro = read-only
-            - "${HOST_DOCKER_WORKING_DIR:-.}/resources/irc/service-setup.sh:/usr/local/bin/setup.sh"
+            - sslcerts-files:/ircd/certs:ro # :ro = read-only
+            - irc-data-files:/ircd
+            - "${HOST_PATH_IRC_IRCD_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/irc}/ircd.yaml:/ircd/ircd.yaml:ro"
+            - "${HOST_PATH_IRC_IRCD_CONFIG_FILES:-/dev/null}/ircd.motd:/ircd/ircd.motd:ro"
             # -=[ Logs ]=-
-            #  ⚠️ Requires permission: `sudo chown -R 1000:1000 ./logs/irc-server`
-            - "${HOST_PATH_LOGS:-./logs}/irc-server:/var/log:z"
-            # -=[ Configs ]=-
-            - "${HOST_DOCKER_WORKING_DIR:-.}/resources/irc/anope:/home/ircd/services/conf"
-            - "${HOST_DOCKER_WORKING_DIR:-.}/resources/irc/unrealircd:/home/ircd/unrealircd/conf"
-            - "${HOST_PATH_IRC_ANOPE_CONFIG_FILES:-/dev/null}:/home/ircd/services/conf/custom:ro"
-            - "${HOST_PATH_IRC_IRCD_CONFIG_FILES:-/dev/null}:/home/ircd/unrealircd/conf/custom:ro"
-            - "${HOST_PATH_IRC_IRCD_CONFIG_FILES:-/dev/null}/ircd.motd:/home/ircd/unrealircd/conf/ircd.motd:ro"
+            - "${HOST_PATH_LOGS:-./logs}/irc-server:/ircd/logs"
 
     #-------------------------
     # 🐍 python Micro-Services
     #-------------------------
     # --- 🧩 Quizbot for IRC ---
+    # ℹ️ On first run: oper must pre-register the bot's nick to bypass email verification:
+    #      /msg NickServ SAREGISTER <IRC_QUIZBOT_NICKNAME> <IRC_QUIZBOT_PASSWORD>
     irc-quizbot:
         profiles: [ "all", "irc" ]
         image: python:3-slim
@@ -750,6 +756,8 @@ services:
             - "${HOST_PATH_IRC_QUIZBOT_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/python/irc-quizbot/configs}:/home/q:ro"
 
     # --- 🕊️ Messaging Bridge between Telegram+IRC ---
+    # ℹ️ On first run: oper must pre-register the bot's nick to bypass email verification:
+    #      /msg NickServ SAREGISTER <IRC2TG_IRC_NICKSERV_USER> <IRC2TG_IRC_NICKSERV_PASS>
     irc-telegram-bridge:
         profiles: [ "all", "irc" ]
         #image: bhavin192/teleirc:v2.2.0 # // TODO Disabled until PRs merged
@@ -1025,4 +1033,6 @@ volumes:
     mail-data-files:
         external: false
     mail-state-files:
+        external: false
+    irc-data-files:
         external: false
