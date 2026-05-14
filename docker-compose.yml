@@ -197,7 +197,7 @@ services:
             - --accessLog.bufferingSize=100
             # -=[ WAF Plugin (CrowdSec Bouncer) ]=-
             - --experimental.plugins.crowdsec-bouncer.modulename=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
-            - --experimental.plugins.crowdsec-bouncer.version=v1.5.1
+            - --experimental.plugins.crowdsec-bouncer.version=v1.6.0
             # -=[ HTTP Services ]=-
             # --- Default HTTP
             - --entryPoints.web.address=:80
