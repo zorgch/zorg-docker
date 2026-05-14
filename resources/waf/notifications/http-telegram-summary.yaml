@@ -1,0 +1,52 @@
+# CrowdSec HTTP Notification Plugin — Telegram Alerts
+# Documentation: https://docs.crowdsec.net/docs/notification_plugins/http
+#
+# Sends batched WAF alert summaries to Telegram via the Bot API.
+# Alerts are grouped to avoid noise: waits up to 1 hour OR until 50 alerts
+# accumulate before sending a single digest message.
+#
+# Env vars are injected by the waf service in docker-compose.yml.
+#
+# Reference in decision-profiles.yaml
+# 👨‍🔬 Notification Test: `docker compose exec waf cscli notifications test http_telegram_summary`
+type: http
+name: http_telegram_summary
+
+log_level: info
+
+# -=[ Batching / Grouping ]=-
+# Send at most one message per group_wait window, OR immediately when group_threshold alerts accumulate
+group_wait: 1h
+group_threshold: 25
+
+# -=[ Telegram Bot API endpoint ]=-
+# ℹ️ url uses ${VAR} (expanded at config load); format uses {{ env "VAR" }} (expanded at render time)
+url: https://api.telegram.org/bot${TELEGRAM_BOT_SERVICEALERTS_TOKEN}/sendMessage
+method: POST
+headers:
+  Content-Type: "application/json"
+
+skip_tls_verify: false
+timeout: 10s
+
+# -=[ Message Format ]=-
+# `format` is the full HTTP POST body (Go template).
+# - {{ len . }}          : number of alerts in this batch
+# - .Source.IP           : attacker IP
+# - .Source.Country      : GeoIP country (may be empty for private IPs)
+# - .Scenario            : matched CrowdSec scenario
+# - .Decisions[].Type    : remediation type (ban, captcha, ...)
+# - .Decisions[].Duration: remediation duration
+#
+# ℹ️ message_thread_id is only included when TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID is non-empty
+format: |
+  {
+    "chat_id": "{{ env "TELEGRAM_BOT_SERVICEALERTS_CHATID" }}",{{ if env "TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID" }}
+    "message_thread_id": {{ env "TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID" }},{{ end }}
+    "parse_mode": "HTML",
+    "text": "⚔️ <b>waf({{ env "DOCKER_STACK" }})</b> {{ len . }} ATTACKS!
+  {{- range . }}
+  {{ range .Decisions }}{{ .Type }} {{ .Duration }}{{ end }} for {{ .EventsCount }}x violating <code>{{ .Scenario | js }}</code>
+  <span class=\"tg-spoiler\">{{ .Source.IP | js }}</span>{{ if .Source.Cn }} from {{ .Source.Cn | js }}{{ end }}{{ if .Source.AsName }} ({{ .Source.AsName | js }}){{ end }}
+  {{- end }}"
+  }

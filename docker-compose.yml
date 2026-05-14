@@ -163,34 +163,41 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - ${REVERSEPROXY_DASHBOARD:+telegram-notifier.service-uri=https://${DOMAINNAME}:8080}
-            # -=[ traefik Reverse Proxy : routing CONDITIONAL ]=-
+            # -=[ traefik Reverse Proxy Dashboard : routing CONDITIONAL ]=-
+            # ⚠️ Be aware that when disabled, traefik will NOT read any of its own service `labels:` !
             - "traefik.enable=${REVERSEPROXY_DASHBOARD:-false}"
-            # --- traefik Dashboard: /dashboard CONDITIONAL ---
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.tls=true}
             - ${REVERSEPROXY_DASHBOARD:+${USE_LETSENCRYPT:+traefik.http.routers.api.tls.certresolver=letsencrypt}}
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.service=api@internal} # Exposes :8080/tcp
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.middlewares=ip-whitelist@file}
             - ${REVERSEPROXY_DASHBOARD:+traefik.http.routers.api.entryPoints=websecure}
-            # --- HTTP : Global redirect to HTTPS ---
-            - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-            - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.rule=HostRegexp(`{host:.+}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.entryPoints=web"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}http-catchall.middlewares=redirect-to-https"
+        environment:
+            # -=[ CrowdSec WAF Middleware ]=-
+            - CROWDSEC_BOUNCER_KEY=${CROWDSEC_BOUNCER_KEY:-changeme-in-dotenv}
+            # ⚠️ Prevent local host proxy from intercepting intra-container traffic.
+            #   (Reason: OrbStack injected itself as proxy, causing "malformed MIME header" HTTP 500 errors)
+            - NO_PROXY=localhost,127.0.0.1,127.0.0.0/8,::1,192.168.0.0/16,172.16.0.0/12,10.0.0.0/8
+            - no_proxy=localhost,127.0.0.1,127.0.0.0/8,::1,192.168.0.0/16,172.16.0.0/12,10.0.0.0/8
         command:
             - --global.sendAnonymousUsage=false
-            - --log.level=${REVERSEPROXY_LOGLEVEL:-ERROR}
-            - --log.compress=true
+            # -- Dashboard
             - --api.dashboard=${REVERSEPROXY_DASHBOARD:-false}
             - --api.insecure=${REVERSEPROXY_DASHBOARD:-false}
+            # -- Providers
             - --providers.docker=true
             - --providers.docker.exposedByDefault=false
             - --providers.file.directory=/config
             - --providers.file.watch=true
-            - --serversTransport.insecureSkipVerify=true
-            # -=[ WAF Plugin (Coraza) ]=-
-            - --experimental.plugins.coraza.modulename=github.com/jcchavezs/coraza-http-wasm-traefik
-            - --experimental.plugins.coraza.version=v0.3.0
+            # -- Logging
+            - --log.level=${REVERSEPROXY_LOGLEVEL:-ERROR}
+            - --log.compress=true
+            # ---- ℹ️ Access Logs: for parsing by WAF for behavioral analysis
+            - --accessLog.filePath=/var/log/traefik/access.log
+            - --accessLog.format=json
+            - --accessLog.bufferingSize=100
+            # -=[ WAF Plugin (CrowdSec Bouncer) ]=-
+            - --experimental.plugins.crowdsec-bouncer.modulename=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+            - --experimental.plugins.crowdsec-bouncer.version=v1.5.1
             # -=[ HTTP Services ]=-
             # --- Default HTTP
             - --entryPoints.web.address=:80
@@ -215,6 +222,7 @@ services:
             # -=[ SFTP Server ]=-
             - --entryPoints.sftp-tcp.address=:2222/tcp
             # -=[ Let's Encrypt configuration ]=-
+            - --serversTransport.insecureSkipVerify=true
             - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL:-hostmaster@${DOMAINNAME}}}
             - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.storage=/certs/acme.json}
             - ${USE_LETSENCRYPT:+--certificatesresolvers.letsencrypt.acme.tlsChallenge=true}
@@ -224,9 +232,109 @@ services:
             - sslcerts-files:/certs:rw # :rw = read+write (explicit)
             # -=[ Configs ]=-
             - "${HOST_PATH_REVERSEPROXY_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/reverseproxy}:/config:ro" # :ro = read-only
-            - "${HOST_PATH_REVERSEPROXY_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/reverseproxy}/coraza-data:/var/lib/coraza"
             # -=[ Logs ]=-
-            - "${HOST_PATH_LOGS:-./logs}/reverseproxy-owasp:/var/log/coraza"
+            - "${HOST_PATH_LOGS:-./logs}/reverseproxy:/var/log/traefik"
+
+    #------------------------------------------------
+    # 🛡️ WAF & Threat Intelligence Engine
+    #------------------------------------------------
+    waf:
+        profiles: [ "all", "status", "webserver", "mailserver", "irc" ]
+        image: crowdsecurity/crowdsec:${CROWDSEC_VERSION:-latest}
+        platform: ${OS_PLATFORM:-linux/amd64}
+        container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}crowdsec
+        restart: on-failure:3
+        depends_on:
+            - reverseproxy
+        cpus: "${WAF_CPU:-0.5}"
+        mem_limit: "${WAF_MEMORY:-512m}"
+        security_opt:
+            - "no-new-privileges:true"
+        networks:
+            - the-grid
+            - information-superhighway
+        expose:
+            - "8080" # ℹ️ LAPI (Local API for bouncer communication)
+            - "7422" # ℹ️ AppSec (Application Security real-time request inspection)
+        labels:
+            # -=[ Servicealerting ]=-
+            - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
+            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
+            - "telegram-notifier.service-uri=${DASHBOARD_HOST:+https://${DASHBOARD_HOST}.${DOMAINNAME}/waf}"
+            # -=[ traefik Reverse Proxy : routing OFF ]=-
+            - "traefik.enable=false"
+        environment:
+            # 📖 HOWTO https://docs.crowdsec.net/u/getting_started/installation/docker/
+            - TZ=${TIMEZONE:-Europe/Zurich}
+            - GID=1000
+            - BOUNCER_KEY_traefik=${CROWDSEC_BOUNCER_KEY:-changeme-in-dotenv}
+            # ℹ️ Collections: traefik=log parsing, http-cve=CVE coverage, appsec-*=OWASP WAF rules (virtual patching + generic rules)
+            - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
+            # -=[ Notification Settings ]=-
+            - DOCKER_STACK=${COMPOSE_PROJECT_NAME:-Docker}
+            # -- Telegram Alerts
+            - TELEGRAM_BOT_SERVICEALERTS_TOKEN=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:-}
+            - TELEGRAM_BOT_SERVICEALERTS_CHATID=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}
+            - TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}
+            # -- Email Alerts
+            - CROWDSEC_ALERT_EMAIL_FROM=postmaster@${DOMAINNAME}
+            - CROWDSEC_ALERT_EMAIL_TO=${CROWDSEC_ALERT_EMAIL_TO:-security@${DOMAINNAME}}
+        volumes:
+            - waf-config:/etc/crowdsec
+            - waf-db:/var/lib/crowdsec/data
+            # -=[ Configs ]=-
+            - "${HOST_PATH_LOGS:-./logs}/reverseproxy:/var/log/traefik:ro" # :ro = read-only (reverseproxy access logs for behavioral analysis)
+            - "${HOST_PATH_WAF_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf}/acquis-traefik.yaml:/etc/crowdsec/acquis.d/traefik.yaml:ro"
+            - "${HOST_PATH_WAF_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf}/appsec-config.yaml:/etc/crowdsec/appsec-configs/appsec-config.yaml:ro"
+            - "${HOST_PATH_WAF_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf}/decision-profiles.yaml:/etc/crowdsec/profiles.yaml:ro"
+            - "${HOST_PATH_WAF_NOTIFICATIONS:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf/notifications}:/etc/crowdsec/notifications:ro"
+            - "${HOST_PATH_WAF_RULES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf/rules}:/etc/crowdsec/appsec-rules/custom:ro"
+
+    # --- ☣️ WAF Web UI Dashboard ---
+    waf-dashboard:
+        profiles: [ "all", "status", "webserver" ]
+        image: ghcr.io/theduffman85/crowdsec-web-ui:latest
+        platform: ${OS_PLATFORM:-linux/amd64}
+        container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}crowdsec-webui
+        restart: on-failure:1
+        depends_on:
+            - waf
+        cpus: "${REVERSEPROXY_CPU:-0.5}"
+        mem_limit: "${REVERSEPROXY_MEMORY:-512m}"
+        security_opt:
+            - "no-new-privileges:true"
+        networks:
+            - the-grid
+        expose:
+            - "3000/tcp"
+        labels:
+            # -=[ Servicealerting : OFF ]=-
+            - "telegram-notifier.monitor=false"
+            # -=[ traefik Reverse Proxy : routing ON ]=-
+            - "traefik.enable=true"
+            - "traefik.docker.network=${NETWORK_HTTP_SERVICES:-loadbalance-http}"
+            # --- HTTP with SSL/TLS (:443) ---
+            # ℹ️ NOTE Exposed under ${DASHBOARD_HOST}/waf (same host as Docker Services Insights)
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-ssl.tls=true"
+            - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-ssl.tls.certresolver=letsencrypt}
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-ssl.entrypoints=websecure"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-ssl.rule=Host(`${DASHBOARD_HOST}.${DOMAINNAME}`) && PathPrefix(`/waf`)"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-ssl.service=${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-service"
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-ssl.middlewares=ip-whitelist@file,contenttype-add@file,compress-gzip@file,securityheaders-add@file"
+            - "traefik.http.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}wafdashboard-service.loadbalancer.server.port=3000"
+        environment:
+            # 📖 HOWTO https://github.com/TheDuffman85/crowdsec-web-ui#readme
+            - TZ=${TIMEZONE:-Europe/Zurich}
+            - BASE_PATH=/waf
+            - CROWDSEC_URL=http://waf:8080
+            - CROWDSEC_USER=crowdsec-web-ui
+            - CROWDSEC_PASSWORD=${CROWDSEC_WEBUI_KEY:-}
+            - CROWDSEC_LOOKBACK_PERIOD=504h
+            - CROWDSEC_REFRESH_INTERVAL=1m
+            - CROWDSEC_IDLE_REFRESH_INTERVAL=10m
+        volumes:
+            - wafdashboard-files:/app/data
 
     #----------------------
     # 🌐 Apache-PHP Website
@@ -276,16 +384,7 @@ services:
             - ${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.tls.certresolver=letsencrypt}
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.entryPoints=websecure"
             - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.rule=Host(`${DOMAINNAME:-website}`) || Host(`www.${DOMAINNAME:-website}`)"
-            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=${WEBSITE_STRIP_WWW:+strip-www,}owasp-coraza-waf@file,contenttype-add@file,compress-gzip@file,securityheaders-add@file"
-            # --- (REMOVED) Configure Redirect for Secondary Domainname ---
-            # - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls=true}
-            # - ${SECONDARY_DOMAINNAME:+${USE_LETSENCRYPT:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.tls.certresolver=letsencrypt}}
-            # - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.entryPoints=websecure}
-            # - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.rule=Host(`${SECONDARY_DOMAINNAME}`)}
-            # - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.regex=^https?://(www\.)?${SECONDARY_DOMAINNAME}/(.*)}
-            # - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.replacement=https://${DOMAINNAME}/$${2}}
-            # - ${SECONDARY_DOMAINNAME:+traefik.http.middlewares.redirect-to-main.redirectregex.permanent=true}
-            # - ${SECONDARY_DOMAINNAME:+traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}secondary.middlewares=redirect-to-main}
+            - "traefik.http.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}main.middlewares=${WEBSITE_STRIP_WWW:+strip-www,}crowdsec-waf@file,contenttype-add@file,compress-gzip@file,securityheaders-add@file"
             # --- (DEV mode only) Configure Xdebug : Port 9003 ---
             - ${XDEBUG_PORT:+traefik.tcp.routers.xdebug.entryPoints=php-xdebug}
             - ${XDEBUG_PORT:+traefik.tcp.routers.xdebug.rule=HostSNI(`*`)}
@@ -614,7 +713,7 @@ services:
     # --- 🧩 Quizbot for IRC ---
     irc-quizbot:
         profiles: [ "all", "irc" ]
-        image: python:3.12-slim
+        image: python:3-slim
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}ircquizbot
         restart: on-failure:5
@@ -730,7 +829,7 @@ services:
     # --- 📈 Stockticker ---
     stockticker:
         profiles: [ "all" ]
-        image: python:3.12-slim
+        image: python:3-slim
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}stockticker
         restart: on-failure
@@ -908,6 +1007,12 @@ volumes:
     sslcerts-files:
         external: false
     portainer-files:
+        external: false
+    waf-config:
+        external: false
+    waf-db:
+        external: false
+    wafdashboard-files:
         external: false
     website-files:
         driver: local

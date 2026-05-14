@@ -1,0 +1,41 @@
+# CrowdSec HTTP Notification Plugin — Immediate AppSec Block Alerts
+# Documentation: https://docs.crowdsec.net/docs/notification_plugins/http
+#
+# Fires immediately (no batching) when an HTTP request is blocked by AppSec
+# in real-time — useful for catching false positives before a legitimate user
+# gets frustrated. No group_wait / group_threshold = one message per alert.
+#
+# AppSec blocks have Alert.Remediation == false: the request was rejected
+# synchronously by the bouncer/AppSec engine; no IP-level ban decision was issued.
+#
+# Reference in decision-profiles.yaml
+# 👨‍🔬 Notification Test: `docker compose exec waf cscli notifications test http_telegram_alert`
+type: http
+name: http_telegram_alert
+
+log_level: info
+
+# ℹ️ No group_wait / group_threshold here → fires immediately on each alert
+
+# -=[ Telegram Bot API endpoint ]=-
+# ℹ️ url uses ${VAR} (expanded at config load); format uses {{ env "VAR" }} (expanded at render time)
+url: https://api.telegram.org/bot${TELEGRAM_BOT_SERVICEALERTS_TOKEN}/sendMessage
+method: POST
+headers:
+  Content-Type: "application/json"
+
+skip_tls_verify: false
+timeout: 10s
+
+# -=[ Message Format ]=-
+# ℹ️ message_thread_id is only included when TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID is non-empty
+format: |
+  {
+    "chat_id": "{{ env "TELEGRAM_BOT_SERVICEALERTS_CHATID" }}",{{ if env "TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID" }}
+    "message_thread_id": {{ env "TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID" }},{{ end }}
+    "parse_mode": "HTML",
+    "text": "🛡 <b>waf({{ env "DOCKER_STACK" }})</b> BLOCKED Request
+  {{- range . }}
+  <span class=\"tg-spoiler\">{{ .Source.IP | js }}</span>: <code>{{ .GetMeta "target_uri" | trimAll "[]\"" | js }}</code> (<code>{{ .Scenario | js }}</code>)
+  {{- end }}"
+  }

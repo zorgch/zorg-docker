@@ -1,0 +1,27 @@
+---
+# CrowdSec Data Acquisition Configuration
+# Documentation: https://docs.crowdsec.net/docs/data_sources/file
+#
+# This file configures CrowdSec's data sources:
+#  1. Traefik access log parsing - detects attack patterns, bot behavior, brute-force attempts
+#  2. AppSec real-time HTTP request inspection - OWASP WAF rules (virtual patching + generic rules)
+#
+# ℹ️ Traefik access logs are shared via the ${HOST_PATH_LOGS}/reverseproxy volume
+# ℹ️ AppSec listens on :7422 for forwarded requests from the crowdsec-bouncer-traefik-plugin
+
+# -=[ Traefik Access Log Parsing ]=-
+# Parses Traefik's JSON access logs for behavioral analysis (IP reputation, bot detection, rate anomalies)
+filenames:
+  - /var/log/traefik/access.log
+labels:
+  type: traefik
+
+---
+# -=[ AppSec Real-time Request Inspection ]=-
+# The Traefik bouncer forwards each HTTP request to this AppSec endpoint for WAF inspection
+# AppSec config: see /etc/crowdsec/appsec-configs/appsec-config.yaml (mounted below)
+appsec_config: custom/appsec-config
+listen_addr: 0.0.0.0:7422
+source: appsec
+labels:
+  type: appsec
