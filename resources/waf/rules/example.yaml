@@ -141,12 +141,14 @@ rules:
 # START CUSTOM WHITELISTING
 # (Optionally: add separate *.yaml files )
 #
-# Add whitelist rules below with a name prefix of "custom/whitelist-"
+# Add whitelist rules below with a name prefix of "custom/allow-"
 # ℹ️ CrowdSec AppSec evaluates rules in alphabetical order by name.
-#    Whitelist rule names starting with "custom/whitelist-" sort before "custom/block-"
-#    and will be evaluated first, allowing early pass decisions to skip block rules.
+#    Whitelist rule names starting with "custom/allow-" sort before "custom/block-"
+#    (because 'a' < 'b') and will be evaluated first, allowing early pass decisions
+#    to skip block rules. ⚠️ Do NOT use "custom/whitelist-" — 'w' > 'b', so those
+#    names would sort AFTER block rules and the allow would never be reached.
 # Example:
-#   name: custom/whitelist-my-path
+#   name: custom/allow-my-path
 #   description: "Allow specific path"
 #   rules:
 #     - zones: [URI]
