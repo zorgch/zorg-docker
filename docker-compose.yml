@@ -690,10 +690,10 @@ services:
         environment:
             - TZ=${TIMEZONE:-Europe/Zurich}
             # -=[ IRCd Settings Overrides ]=-
-            - "ERGO__NETWORK__NAME=${IRC_NETWORK_NAME:-}"
             - "ERGO__SERVER__NAME=${IRC_HOST}.${DOMAINNAME}"
-            - "ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__SENDER=${IRC_EMAIL_SENDER:-}"
-            - "ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__HELO-DOMAIN=${DOMAINNAME:-}"
+            - "ERGO__NETWORK__NAME=${IRC_NETWORK_NAME:-${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}ircdserver}"
+            - "ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__SENDER=${IRC_EMAIL_SENDER:-irc@${DOMAINNAME}}"
+            - "ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__HELO-DOMAIN=${DOMAINNAME}"
             - "ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__MTA__SERVER=${IRC_SMTP_HOST:-postfix-smtp}"
             - "ERGO__ACCOUNTS__REGISTRATION__EMAIL-VERIFICATION__MTA__PORT=${IRC_SMTP_PORT:-25}"
             - "ERGO__WEBPUSH__SUBSCRIBER=https://${DOMAINNAME}"
@@ -709,7 +709,7 @@ services:
             - sslcerts-files:/ircd/certs:ro # :ro = read-only
             - irc-data-files:/ircd
             - "${HOST_PATH_IRC_IRCD_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/irc}/ircd.yaml:/ircd/ircd.yaml:ro"
-            - "${HOST_PATH_IRC_IRCD_CONFIG_FILES:-/dev/null}/ircd.motd:/ircd/ircd.motd:ro"
+            - "${HOST_PATH_IRC_IRCD_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/irc}/ircd.motd:/ircd/ircd.motd:ro"
             # -=[ Logs ]=-
             - "${HOST_PATH_LOGS:-./logs}/irc-server:/ircd/logs"
 

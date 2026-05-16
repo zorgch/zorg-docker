@@ -324,7 +324,7 @@ accounts:
             enabled: true
             duration: 10m
             max-attempts: 30
-        bcrypt-cost: 4
+        bcrypt-cost: 12
         verify-timeout: "72h"
         # -- Email verification via internal postfix-smtp container.
         # ⚠️ Bot/service accounts (quizbot, telegram bridge, etc.) cannot self-register when this is enabled.

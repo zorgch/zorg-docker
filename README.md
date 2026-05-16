@@ -456,6 +456,9 @@ Give someone else OP mode or so, for a channel:
 # not their nicknames.
 ```
 
+> [!TIP]
+> See [Modes](https://github.com/ergochat/ergo/blob/stable/docs/MANUAL.md#modes) documentation
+
 ##### Bot/service accounts registration (bypasses email verification)
 
 Connect to the IRC server, and oper yourself:
