@@ -676,6 +676,7 @@ services:
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.rule=HostSNI(`*`)"
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc.priority=${NETWORK_TCP_SERVICES_ROUTING_PRIORITY:-1}"
             - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-tcp-service.loadbalancer.server.port=6667"
+            - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-tcp-service.loadbalancer.proxyprotocol.version=2"
             # --- IRC with SSL/TLS (6697/tcp) ---
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.tls=true"
             - ${USE_LETSENCRYPT:-traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.tls.passthrough=true}
@@ -685,6 +686,7 @@ services:
             - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl.rule=HostSNI(`${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}`)"
             - ${USE_LETSENCRYPT:-traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service.loadbalancer.server.port=6697}
             - ${USE_LETSENCRYPT:+traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service.loadbalancer.server.port=6667}
+            - "traefik.tcp.services.${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}irc-ssl-service.loadbalancer.proxyprotocol.version=2"
         environment:
             - TZ=${TIMEZONE:-Europe/Zurich}
             # -=[ IRCd Settings Overrides ]=-

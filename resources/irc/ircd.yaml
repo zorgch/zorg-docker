@@ -41,9 +41,15 @@ server:
 
     listeners:
         # Plaintext IRC on all interfaces (required for TCP passthrough)
-        ":6667": {}
+        ":6667":
+            proxy: true
+            proxy-allowed-from:
+                - "172.16.0.0/12" # Docker bridge networks (172.16-172.31)
         # TLS IRC — Ergo terminates TLS directly using the mounted certificate
         ":6697":
+            proxy: true
+            proxy-allowed-from:
+                - "172.16.0.0/12" # Docker bridge networks (172.16-172.31)
             tls:
                 cert: /ircd/certs/fullchain.cert
                 key: /ircd/certs/privkey.key
@@ -73,7 +79,7 @@ server:
     secure-nets:
         # IPv4 - HOST
         - "127.0.0.1/32"   # localhost
-        - "192.168.0.0/12" # local IPs (192.168.)
+        - "192.168.0.0/16" # local IPs (192.168.)
         - "172.16.0.0/12"  # Docker bridge networks (172.16-172.31)
         - "10.0.0.0/8"     # Internal private network (10.x)
         # IPv6 - HOST
@@ -88,7 +94,7 @@ server:
         count: true
 
         # maximum concurrent connections per IP/CIDR
-        max-concurrent-connections: 16
+        max-concurrent-connections: 4
 
         # whether to restrict the rate of new connections per IP/CIDR
         throttle: true
@@ -97,7 +103,7 @@ server:
         window: 10m
 
         # maximum number of new connections per IP/CIDR within the given duration
-        max-connections-per-window: 32
+        max-connections-per-window: 8
 
         # how wide the CIDR should be for IPv4 (a /32 is a fully specified IPv4 address)
         cidr-len-ipv4: 32
@@ -107,11 +113,10 @@ server:
         cidr-len-ipv6: 64
 
         # IPs/networks which are exempted from connection limits
-        # ℹ️ localhost must be exempted: many users connect via SSH directly on the server
+        # ℹ️ localhost does NOT apply to users connecting via SSH, but only to the IRC Server containter itself
         exempted:
             - "localhost"
-            # - "192.168.1.1"
-            # - "2001:0db8::/32"
+            - "172.16.0.0/12" # Docker bridge networks (172.16-172.31)
 
     casemapping: "ascii"
     enforce-utf8: true
