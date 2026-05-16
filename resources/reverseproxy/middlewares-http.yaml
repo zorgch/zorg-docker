@@ -1,3 +1,13 @@
+# traefik TCP Middlewares for TCP routes
+# - More information: https://doc.traefik.io/traefik/routing/services/#serverstransport_2
+tcp:
+  # Enable ServersTransports PROXY Protocol v2 transport
+  # - Use with: traefik.tcp.services.<name>.loadbalancer.serversTransport=proxy-protocol-v2@file
+  serversTransports:
+    proxy-protocol-v2:
+      proxyProtocol:
+        version: 2
+
 # traefik Middlewares for HTTP routes
 # - More information: https://community.traefik.io/t/middleware-does-not-exist-but-it-is-defined/19253/8
 http:
