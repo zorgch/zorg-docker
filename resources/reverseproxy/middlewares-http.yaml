@@ -1,3 +1,13 @@
+# traefik TCP Middlewares for TCP routes
+# - More information: https://doc.traefik.io/traefik/routing/services/#serverstransport_2
+tcp:
+  # Enable ServersTransports PROXY Protocol v2 transport
+  # - Use with: traefik.tcp.services.<name>.loadbalancer.serversTransport=proxy-protocol-v2@file
+  serversTransports:
+    proxy-protocol-v2:
+      proxyProtocol:
+        version: 2
+
 # traefik Middlewares for HTTP routes
 # - More information: https://community.traefik.io/t/middleware-does-not-exist-but-it-is-defined/19253/8
 http:
@@ -52,13 +62,13 @@ http:
       ipAllowList:
         sourceRange:
           # IPv4 - HOST
-          - "127.0.0.1/32"  # localhost
-          - "192.168.0.0/12" # local IPs (192.168.)
-          - "172.16.0.0/12" # Docker bridge networks (172.16-172.31)
+          - "127.0.0.1/32"   # localhost
+          - "192.168.0.0/16" # local IPs (192.168.)
+          - "172.16.0.0/12"  # Docker bridge networks (172.16-172.31)
           # IPv6 - HOST
-          - "::1/128"       # localhost
-          - "fe80::/10"     # Docker Link-local
-          - "fd00::/8"      # Docker IPv6 default range
+          - "::1/128"        # localhost
+          - "fe80::/10"      # Docker Link-local
+          - "fd00::/8"       # Docker IPv6 default range
           # EXTERNAL HOSTS
           # - ".../32"
 
@@ -88,7 +98,7 @@ http:
           clientTrustedIPs:
             # IPv4 - HOST
             - "127.0.0.1/32"
-            - "192.168.0.0/12"
+            - "192.168.0.0/16"
             - "172.16.0.0/12"
             # IPv6 - HOST
             - "::1/128"

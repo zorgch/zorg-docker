@@ -10,38 +10,6 @@
 #   - resources/waf/notifications/notification-email.yaml    → email_waf_alerts
 # (all mounted into the container via the notifications/ directory volume)
 
-# -=[ IP-based remediation ]=-
-# Fires for any alert that targets an individual IP and has remediation=true
-name: default_ip_remediation
-#debug: true
-filters:
-  - Alert.Remediation == true && Alert.GetScope() == "Ip"
-decisions:
-  - type: ban
-    duration: 4h
-notifications:
-  - http_telegram_summary
-  - email_summary
-on_success: break
-
----
-
-# -=[ IP Range-based remediation ]=-
-# Fires for alerts targeting a CIDR range (e.g. mass-scanning subnets)
-name: default_range_remediation
-#debug: true
-filters:
-  - Alert.Remediation == true && Alert.GetScope() == "Range"
-decisions:
-  - type: ban
-    duration: 4h
-notifications:
-  - http_telegram_summary
-  - email_summary
-on_success: break
-
----
-
 # -=[ AppSec real-time block alerts for sensitive paths ]=-
 # Fires immediately when AppSec blocks a request to a path that is likely used
 # by authorized users — so a block probably means a false positive.
@@ -70,4 +38,82 @@ filters:
     )
 notifications:
   - http_telegram_alert
+on_success: break
+
+---
+
+# -=[ CRITICAL: Exploit & Credential-Harvesting Attempts ]=-
+# Covers: CVE probing, vpatch triggers (env/.git access), appsec virtual patches, brute-force
+# → Long ban (12h) + Telegram notification only (no email duplicate)
+name: critical_ip_remediation
+#debug: true
+filters:
+  - >-
+    Alert.Remediation == true
+    && Alert.GetScope() == "Ip"
+    && Alert.Scenario in [
+         "crowdsecurity/appsec-vpatch",
+         "crowdsecurity/http-bf",
+         "crowdsecurity/http-cve-probing",
+         "crowdsecurity/http-sqli-probing",
+         "crowdsecurity/vpatch-env-access",
+         "crowdsecurity/vpatch-git-config"
+       ]
+decisions:
+  - type: ban
+    duration: 12h
+notifications:
+  - http_telegram_summary
+on_success: break
+
+---
+
+# -=[ MEDIUM: Targeted Sensitive Probing ]=-
+# Covers: sensitive file enumeration
+# → Medium ban (4h) + Email summary only (less urgent, batched)
+name: medium_ip_remediation
+#debug: true
+filters:
+  - >-
+    Alert.Remediation == true
+    && Alert.GetScope() == "Ip"
+    && Alert.Scenario in [
+         "crowdsecurity/http-sensitive-files",
+         "crowdsecurity/http-crawl-non_statics"
+       ]
+decisions:
+  - type: ban
+    duration: 4h
+notifications:
+  - email_summary
+on_success: break
+
+---
+
+# -=[ IP RANGE: Mass-Scanning Subnets ]=-
+# Ranges indicate coordinated/infrastructure-level activity → treat as medium
+# Email only; Telegram would be too noisy if a large range triggers repeatedly
+name: default_range_remediation
+#debug: true
+filters:
+  - Alert.Remediation == true && Alert.GetScope() == "Range"
+decisions:
+  - type: ban
+    duration: 6h
+notifications:
+  - email_summary
+on_success: break
+
+---
+
+# -=[ LOW / DEFAULT: Generic Scanning & Catch-All ]=-
+# Covers: http-probing, technology-probing, WordPress scans, admin-interface probing, and anything not matched above
+# → Short ban (1h), no notifications (too noisy, not actionable)
+name: default_ip_remediation
+#debug: true
+filters:
+  - Alert.Remediation == true && Alert.GetScope() == "Ip"
+decisions:
+  - type: ban
+    duration: 1h
 on_success: break
