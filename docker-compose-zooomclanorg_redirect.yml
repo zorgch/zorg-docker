@@ -38,7 +38,7 @@ services:
         cpus: "${MICROSERVICE_CPU:-0.1}"
         mem_limit: "${MICROSERVICE_MEMORY:-64m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         networks:
             - loadbalance-http
         expose:
