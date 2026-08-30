@@ -117,7 +117,6 @@ Creat the a folder structure on your host machine that reflects the following:
     │
     ├── .env               <-- Copy & adjust ".env.example" from repo
     ├── docker-compose.yml <-- Symbolic-linked ./zorg-docker/docker-compose.yml
-    ├── docker-update.sh   <-- Symbolic-linked ./zorg-docker/docker-update.sh
     │
     ├── reverseproxy/      <-- (Optional) To further customize Traefik middlewares (IP-Whitelist etc.). Ref in .env
     │   └── middlewares-http.yaml
@@ -670,20 +669,27 @@ cd /srv/<my-website>/<host>/
 for image in $(docker compose --profile all config | awk '/image:/ { print $2 }'); do docker pull "$image"; done;
 ```
 
-Alternatively, use the `docker-update.sh` script (can also be run via Host's cron):
-
-```bash
-cd /srv/<my-website>/<host>/
-./docker-update.sh
-```
-
 For built-in periodic updates with automatic container restarts and old-image cleanup, run Watchtower:
 
 ```bash
 docker compose --profile status up -d watchtower
 ```
 
-Watchtower behavior is configured through `.env` variables (`WATCHTOWER_*`), including update interval/schedule, cleanup, rolling restarts, timeout and optional notification URL.
+Watchtower behavior is configured through `.env` variables (`WATCHTOWER_*`), including update interval/schedule, cleanup, rolling restarts, timeout and notifications.
+By default notifications use the same Telegram bot settings as `servicealerts` (`TELEGRAM_BOT_SERVICEALERTS_TOKEN`, `TELEGRAM_BOT_SERVICEALERTS_CHATID`, optional `TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID`).
+
+### Watchtower vs former `docker-update.sh`
+
+Watchtower can replace:
+* periodic update checks (`WATCHTOWER_POLL_INTERVAL` or `WATCHTOWER_SCHEDULE`)
+* pull + recreate/restart with existing container config
+* post-update cleanup of old images (`WATCHTOWER_CLEANUP`)
+* update notifications (Telegram via `WATCHTOWER_NOTIFICATION_URL`)
+
+Watchtower does **not** replace:
+* pre-update countdown/timer announcements
+* custom pre-flight compose checks before starting update
+* custom Docker builder cache pruning (`docker builder prune`)
 
 
 > [!CAUTION]
