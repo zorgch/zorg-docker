@@ -561,7 +561,7 @@ Some single services have their own profile, in order to prevent them from start
 | -------------- | ------------------------------------ | -------------------------------|
 | `all`          | All general services                 | `--profile all`                |
 | `setup`        | `sslcerts` `postfix-smtp`            | `--profile setup`              |
-| `status`       | `servicealerts` `dashboard` `reverseproxy` `waf` `waf-dashboard` | `--profile status` |
+| `status`       | `servicealerts` `dashboard` `watchtower` `reverseproxy` `waf` `waf-dashboard` | `--profile status` |
 | `webserver`    | `servicealerts` `dashboard` `reverseproxy` `waf` `waf-dashboard` `website` `db` `db-manager` `postfix-smtp` | `--profile webserver` |
 | `irc`          | `servicealerts` `dashboard` `reverseproxy` `waf` `irc` `irc-quizbot` `irc-telegram-bridge` | `--profile irc` |
 | `keepass`      | `servicealerts` `dashboard` `sftp`   | `--profile keepass` |
@@ -677,9 +677,17 @@ cd /srv/<my-website>/<host>/
 ./docker-update.sh
 ```
 
+For built-in periodic updates with automatic container restarts and old-image cleanup, run Watchtower:
+
+```bash
+docker compose --profile status up -d watchtower
+```
+
+Watchtower behavior is configured through `.env` variables (`WATCHTOWER_*`), including update interval/schedule, cleanup, rolling restarts, timeout and optional notification URL.
+
 
 > [!CAUTION]
-> Updating Docker images will NOT renew running services - they have to be [rebuilt](#manage-general-services)!
+> Manually pulling Docker images will NOT renew running services - they have to be [rebuilt](#manage-general-services)! (Watchtower handles restarts automatically.)
 
 
 <br><br>

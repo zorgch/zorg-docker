@@ -122,6 +122,44 @@ services:
             - sslcerts-files:/certs/live/${DOMAINNAME}:ro # :ro = read-only
             - portainer-files:/data
 
+    #----------------------------
+    # 🆙 Docker image auto-updater
+    #----------------------------
+    watchtower:
+        profiles: [ "all", "status" ]
+        image: nickfedor/watchtower:${WATCHTOWER_VERSION:-latest}
+        platform: ${OS_PLATFORM:-linux/amd64}
+        container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}watchtower
+        restart: unless-stopped
+        cpus: "${MICROSERVICE_CPU:-0.2}"
+        mem_limit: "${MICROSERVICE_MEMORY:-256m}"
+        security_opt:
+            - "no-new-privileges=true"
+        networks:
+            - the-grid
+        labels:
+            # -=[ Servicealerting ]=-
+            - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
+            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
+            # -=[ watchtower ]=-
+            - "com.centurylinklabs.watchtower.enable=false"
+            # -=[ traefik Reverse Proxy : routing OFF ]=-
+            - "traefik.enable=false"
+        environment:
+            - TZ=${TIMEZONE:-Europe/Zurich}
+            - WATCHTOWER_POLL_INTERVAL=${WATCHTOWER_POLL_INTERVAL:-86400}
+            - WATCHTOWER_SCHEDULE=${WATCHTOWER_SCHEDULE:-}
+            - WATCHTOWER_CLEANUP=${WATCHTOWER_CLEANUP:-true}
+            - WATCHTOWER_ROLLING_RESTART=${WATCHTOWER_ROLLING_RESTART:-true}
+            - WATCHTOWER_INCLUDE_RESTARTING=${WATCHTOWER_INCLUDE_RESTARTING:-true}
+            - WATCHTOWER_TIMEOUT=${WATCHTOWER_TIMEOUT:-30s}
+            - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
+            - WATCHTOWER_NOTIFICATION_REPORT=${WATCHTOWER_NOTIFICATION_REPORT:-true}
+            - WATCHTOWER_NOTIFICATIONS_LEVEL=${WATCHTOWER_NOTIFICATIONS_LEVEL:-info}
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+
     #-----------------------------
     # 🚦 Reverse Proxy and TLS/SSL
     #-----------------------------
