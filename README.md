@@ -180,6 +180,7 @@ Here's an overview of the underlying Docker images used for the Docker Services,
 | 🔐 `sslcerts`      | `alpine/mkcert`           | [GitHub](https://github.com/alpine-docker/multi-arch-docker-images/tree/master/mkcert) |
 | 📊 `dashboard`     | `portainer/portainer-ce`  | [Docs](https://docs.portainer.io/start/install-ce/server/docker) |
 | 🚨 `servicealerts` | `lorcas/docker-telegram-notifier` | [GitHub](https://github.com/luc-ass/docker-telegram-notifier) |
+| 🔄 `dockerupdates` | `nickfedor/watchtower` | [Docs](https://watchtower.nickfedor.com/) |
 | 🚦 `reverseproxy`  | `traefik`<br>`crowdsec-bouncer-traefik-plugin` | [Docs](https://doc.traefik.io/traefik/)<br>[Plugin](https://plugins.traefik.io/plugins/6335346ca4caa9ddeffda116/crowdsec-bouncer-traefik-plugin) |
 | 🛡️ `waf`           | `crowdsecurity/crowdsec`  | [Docs](https://docs.crowdsec.net/u/getting_started/installation/docker/) |
 | ☣️ `waf-dashboard` | `ghcr.io/theduffman85/crowdsec-web-ui` | [GitHub](https://github.com/TheDuffman85/crowdsec-web-ui) |
@@ -560,7 +561,7 @@ Some single services have their own profile, in order to prevent them from start
 | -------------- | ------------------------------------ | -------------------------------|
 | `all`          | All general services                 | `--profile all`                |
 | `setup`        | `sslcerts` `postfix-smtp`            | `--profile setup`              |
-| `status`       | `servicealerts` `dashboard` `watchtower` `reverseproxy` `waf` `waf-dashboard` | `--profile status` |
+| `status`       | `servicealerts` `dockerupdates` `dashboard` `reverseproxy` `waf` `waf-dashboard` | `--profile status` |
 | `webserver`    | `servicealerts` `dashboard` `reverseproxy` `waf` `waf-dashboard` `website` `db` `db-manager` `postfix-smtp` | `--profile webserver` |
 | `irc`          | `servicealerts` `dashboard` `reverseproxy` `waf` `irc` `irc-quizbot` `irc-telegram-bridge` | `--profile irc` |
 | `keepass`      | `servicealerts` `dashboard` `sftp`   | `--profile keepass` |
@@ -672,11 +673,10 @@ for image in $(docker compose --profile all config | awk '/image:/ { print $2 }'
 For built-in periodic updates with automatic container restarts and old-image cleanup, run Watchtower:
 
 ```bash
-docker compose --profile status up -d watchtower
+docker compose up -d watchtower
 ```
 
 Watchtower behavior is configured through `.env` variables (`WATCHTOWER_*`), including update interval/schedule, cleanup, rolling restarts, timeout and notifications.
-By default notifications use the same Telegram bot settings as `servicealerts` (`TELEGRAM_BOT_SERVICEALERTS_TOKEN`, `TELEGRAM_BOT_SERVICEALERTS_CHATID`, optional `TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID`).
 
 ### Watchtower vs former `docker-update.sh`
 
