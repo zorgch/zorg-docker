@@ -163,7 +163,7 @@ services:
             - WATCHTOWER_INCLUDE_STOPPED=true
             - WATCHTOWER_INCLUDE_RESTARTING=true
             - WATCHTOWER_REVIVE_STOPPED=false
-            - WATCHTOWER_ROLLING_RESTART=true
+            - WATCHTOWER_ROLLING_RESTART=false
             - WATCHTOWER_CLEANUP=true
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock:ro
