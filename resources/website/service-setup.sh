@@ -72,13 +72,24 @@ cd /tmp && \
 if [ -n "${MAXMIND_LICENSE}" ] && [ ! -f "/usr/share/GeoIP/GeoLite2-City/GeoLite2-City.mmdb" ]; then
     # Create required directories
     mkdir -p /tmp/maxmind /usr/share/GeoIP/GeoLite2-City
-    # Download and extract in one go
-    curl -L -u "${MAXMIND_ACCOUNT}:${MAXMIND_LICENSE}" \
+     # Download to a temp file
+    if curl -L --location-trusted -u "${MAXMIND_ACCOUNT}:${MAXMIND_LICENSE}" \
         'https://download.maxmind.com/geoip/databases/GeoLite2-City/download?suffix=tar.gz' \
-        | tar xz -C /tmp/maxmind
-    # Move just the .mmdb file to final location (using find to handle dynamic folder name)
-    find /tmp/maxmind -name 'GeoLite2-City.mmdb' -exec mv {} /usr/share/GeoIP/GeoLite2-City/ \;
-    # Cleanup
+        -o /tmp/geolite2-city.tar.gz; then
+
+        # Attempt to extract. If it fails (e.g. file is actually an error HTML page), we skip.
+        if tar -xzf /tmp/geolite2-city.tar.gz -C /tmp/maxmind 2>/dev/null; then
+            # Move just the .mmdb file to final location
+            find /tmp/maxmind -name 'GeoLite2-City.mmdb' -exec mv {} /usr/share/GeoIP/GeoLite2-City/ \;
+        else
+            echo "[WARNING] MaxMind downloaded file is unauthorized download, corrupted, or has invalid file contents! Check account credentials/license, or https://status.maxmind.com/"
+        fi
+        # Cleanup temp file
+        rm -f /tmp/geolite2-city.tar.gz
+    else
+        echo "[WARNING] MaxMind download failed. Check account credentials/license, or https://status.maxmind.com/"
+    fi
+    # Cleanup temp dir
     rm -rf /tmp/maxmind
 fi
 

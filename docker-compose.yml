@@ -37,7 +37,7 @@ services:
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}sslcerts
         restart: "no"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         cap_drop:
             - ALL
         network_mode: "none"
@@ -66,7 +66,7 @@ services:
         cpus: "${MICROSERVICE_CPU:-0.25}"
         mem_limit: "${MICROSERVICE_MEMORY:-128m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         networks:
             - the-grid
         environment:
@@ -91,7 +91,7 @@ services:
         cpus: "${REVERSEPROXY_CPU:-0.5}"
         mem_limit: "${REVERSEPROXY_MEMORY:-512m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         hostname: ${DASHBOARD_HOST:+${DASHBOARD_HOST}.${DOMAINNAME}}
         networks:
             - the-grid
@@ -134,7 +134,7 @@ services:
         cpus: "${REVERSEPROXY_CPU:-0.5}"
         mem_limit: "${REVERSEPROXY_MEMORY:-512m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         networks:
             - the-grid
             - information-superhighway
@@ -249,7 +249,7 @@ services:
         cpus: "${WAF_CPU:-0.5}"
         mem_limit: "${WAF_MEMORY:-512m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         networks:
             - the-grid
             - information-superhighway
@@ -303,7 +303,7 @@ services:
         cpus: "${REVERSEPROXY_CPU:-0.5}"
         mem_limit: "${REVERSEPROXY_MEMORY:-512m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         networks:
             - the-grid
         expose:
@@ -348,7 +348,7 @@ services:
         cpus: "${WEBSITE_CPU:-2.0}"
         mem_limit: "${WEBSITE_MEMORY:-2048m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         hostname: ${DOMAINNAME}
         networks:
             - the-grid
@@ -448,7 +448,7 @@ services:
         cpus: "${MARIADB_CPU:-2.0}"
         mem_limit: "${MARIADB_MEMORY:-2560m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         networks:
             - zion-mainframe
         expose:
@@ -551,7 +551,7 @@ services:
         cpus: "${MAILSERVER_CPU:-0.5}"
         mem_limit: "${MAILSERVER_MEMORY:-128m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         hostname: ${MAILSERVER_HOST:+${MAILSERVER_HOST}.${DOMAINNAME}}
         extra_hosts:
             - "${MAILSERVER_HOST_INTERNAL:-no-mailserver-host-internal-set}.${DOMAINNAME}:127.0.0.1"
@@ -648,7 +648,7 @@ services:
         cpus: "${IRC_CPU:-0.5}"
         mem_limit: "${IRC_MEMORY:-256m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         hostname: ${IRC_HOST:+${IRC_HOST}.${DOMAINNAME}}
         networks:
             - information-superhighway
@@ -731,7 +731,7 @@ services:
         cpus: "${MICROSERVICE_CPU:-0.2}"
         mem_limit: "${MICROSERVICE_MEMORY:-128m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         networks:
             - information-superhighway
         labels:
@@ -775,7 +775,7 @@ services:
         cpus: "${MICROSERVICE_CPU:-0.2}"
         mem_limit: "${MICROSERVICE_MEMORY:-128m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         networks:
             - information-superhighway
         labels:
@@ -847,7 +847,7 @@ services:
         mem_limit: "${MICROSERVICE_MEMORY:-128m}"
         memswap_limit: 512mb
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         networks:
             - the-grid
         healthcheck:
@@ -888,7 +888,7 @@ services:
         cpus: "${KEEPASS_SFTP_CPU:-0.25}"
         mem_limit: "${KEEPASS_SFTP_MEMORY:-256m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         hostname: ${KEEPASS_HOST:+${KEEPASS_HOST}.${DOMAINNAME}}
         networks:
             - information-superhighway
@@ -936,7 +936,7 @@ services:
         cpus: "${QUAKE3_CPU:-2.0}"
         mem_limit: "${QUAKE3_MEMORY:-2560m}"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         hostname: ${QUAKE3_HOST:+${QUAKE3_HOST}.${DOMAINNAME}}
         networks:
             - slipgate-teleporter
@@ -976,7 +976,7 @@ services:
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}phpdocumentor
         restart: "no"
         security_opt:
-            - "no-new-privileges:true"
+            - "no-new-privileges=true"
         network_mode: "none"
         environment:
             - GIT_REPO=${WEBSITE_GIT_REPO:-https://github.com/zorgch/zorg-code}
