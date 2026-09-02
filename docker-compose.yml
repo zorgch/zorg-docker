@@ -257,7 +257,7 @@ services:
             - "8080" # ℹ️ LAPI (Local API for bouncer communication)
             - "7422" # ℹ️ AppSec (Application Security real-time request inspection)
         ports:
-            - "127.0.0.1:${CROWDSEC_LAPI_PORT:-8080}:8080/tcp"
+            - "127.0.0.1:${CROWDSEC_PORT_LAPI:-8888}:8080/tcp"
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
