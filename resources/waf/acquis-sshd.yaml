@@ -1,0 +1,4 @@
+filenames:
+  - /var/lib/crowdsec/sshd_auth.log
+labels:
+  type: syslog

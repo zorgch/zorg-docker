@@ -319,6 +319,8 @@ services:
         expose:
             - "8080" # ℹ️ LAPI (Local API for bouncer communication)
             - "7422" # ℹ️ AppSec (Application Security real-time request inspection)
+        ports:
+            - "127.0.0.1:${CROWDSEC_PORT_LAPI:-8888}:8080/tcp"
         labels:
             # -=[ Servicealerting ]=-
             - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
@@ -334,8 +336,9 @@ services:
             - TZ=${TIMEZONE:-Europe/Zurich}
             - GID=1000
             - BOUNCER_KEY_traefik=${CROWDSEC_BOUNCER_KEY:-changeme-in-dotenv}
+            - BOUNCER_KEY_host_firewall=${CROWDSEC_FIREWALL_BOUNCER_KEY:-changeme-in-dotenv}
             # ℹ️ Collections: traefik=log parsing, http-cve=CVE coverage, appsec-*=OWASP WAF rules (virtual patching + generic rules)
-            - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
+            - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/sshd
             # -=[ Notification Settings ]=-
             - DOCKER_STACK=${COMPOSE_PROJECT_NAME:-Docker}
             # -- Telegram Alerts
@@ -353,8 +356,11 @@ services:
             - "${HOST_PATH_WAF_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf}/acquis-traefik.yaml:/etc/crowdsec/acquis.d/traefik.yaml:ro"
             - "${HOST_PATH_WAF_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf}/appsec-config.yaml:/etc/crowdsec/appsec-configs/appsec-config.yaml:ro"
             - "${HOST_PATH_WAF_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf}/decision-profiles.yaml:/etc/crowdsec/profiles.yaml:ro"
+            - "${HOST_PATH_WAF_CONFIG_FILES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf}/acquis-sshd.yaml:/etc/crowdsec/acquis.d/sshd.yaml:ro"
             - "${HOST_PATH_WAF_NOTIFICATIONS:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf/notifications}:/etc/crowdsec/notifications:ro"
             - "${HOST_PATH_WAF_RULES:-${HOST_DOCKER_WORKING_DIR:-.}/resources/waf/rules}:/etc/crowdsec/appsec-rules/custom:ro"
+            # -=[ Host sshd Authentication Logs ]=-
+            - "${HOST_PATH_WAF_MONITOR_SSHD_AUTHLOG-/dev/null}:/var/lib/crowdsec/sshd_auth.log:ro"
 
     # --- ☣️ WAF Web UI Dashboard ---
     waf-dashboard:
