@@ -1,0 +1,40 @@
+{{- if .Report -}}
+  {{- with .Report -}}
+    {{- $summary := printf "📦 <b>%d</b> Container | 📥 <b>%d</b> Updates | 🔁 <b>%d</b> Restarts | ❌ <b>%d</b> Errors" (len .Scanned) (len .Updated) (len .Restarted) (len .Failed) -}}
+    {{- printf "\n%s\n\n" $summary -}}
+
+    {{- if (or .Updated .Restarted .Failed .Skipped) -}}
+<blockquote expandable>
+      {{- range .Updated}}
+        {{- printf "\n📥 Updated <b>%s</b>" .ImageName -}}
+      {{- end -}}
+
+      {{/* Section: Restarts */}}
+      {{- range .Restarted}}
+        {{- printf "\n🔁 Restarted <b>%s</b>" .Name -}}
+      {{- end -}}
+
+      {{/* Section: Errors/Skipped */}}
+      {{- range .Failed}}
+        {{- printf "\n⚠️ <b>%s</b>: %s" .Name .Error -}}
+      {{- end -}}
+
+      {{- range .Skipped}}
+        {{- printf "\n⏩ <b>%s</b>: %s" .Name .Error -}}
+      {{- end -}}
+</blockquote>
+    {{- end -}}
+
+    {{/* Final Status Footer */}}
+    {{- if (or .Updated .Restarted .Failed) -}}
+      {{- printf "\n\n✅ <b>All DONE!</b>\n" -}}
+    {{- end -}}
+
+    {{"\n"}}Check <a href="https://dockerstatus.zorg.ch/">Status Dashboard</a>
+  {{- end -}}
+{{- if .Entries -}}
+
+{{"\n\n"}}Logs:{{"\n"}}
+{{- end -}}
+{{range .Entries -}}{{.Time.Format "2006-01-02T15:04:05Z07:00"}} [{{.Level}}] {{.Message}}{{"\n"}}{{- end -}}
+{{- end -}}
