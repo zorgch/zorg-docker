@@ -41,6 +41,11 @@ services:
         cap_drop:
             - ALL
         network_mode: "none"
+        labels:
+            # -=[ Servicealerting : OFF ]=-
+            - "telegram-notifier.monitor=false"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
         entrypoint: sh
         command: >
             -c 'mkcert -install &&
@@ -69,6 +74,11 @@ services:
             - "no-new-privileges=true"
         networks:
             - the-grid
+        labels:
+            # -=[ Servicealerting : OFF ]=-
+            - "telegram-notifier.monitor=false"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
         environment:
             # ℹ️ Notifications only from whitelisted containers: "labels: telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
             - ONLY_WHITELIST=true
@@ -104,6 +114,8 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${DASHBOARD_HOST:+https://${DASHBOARD_HOST}.${DOMAINNAME}}"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
             - "traefik.docker.network=${NETWORK_HTTP_SERVICES:-loadbalance-http}"
@@ -121,6 +133,55 @@ services:
             - /var/run/docker.sock:/var/run/docker.sock
             - sslcerts-files:/certs/live/${DOMAINNAME}:ro # :ro = read-only
             - portainer-files:/data
+
+    #-----------------------------
+    # 🔄 Docker image auto-updater
+    #-----------------------------
+    dockerupdates:
+        profiles: [ "all", "status" ]
+        image: nickfedor/watchtower:${WATCHTOWER_VERSION:-latest}
+        platform: ${OS_PLATFORM:-linux/amd64}
+        container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}watchtower
+        restart: unless-stopped
+        cpus: "${MICROSERVICE_CPU:-0.2}"
+        mem_limit: "${MICROSERVICE_MEMORY:-256m}"
+        security_opt:
+            - "no-new-privileges=true"
+        networks:
+            - the-grid
+        labels:
+            # -=[ Servicealerting ]=-
+            - "telegram-notifier.monitor=${TELEGRAM_BOT_SERVICEALERTS_TOKEN:+true}"
+            - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
+            - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
+            # -=[ traefik Reverse Proxy : routing OFF ]=-
+            - "traefik.enable=false"
+        environment:
+            - TZ=${TIMEZONE:-Europe/Zurich}
+            - WATCHTOWER_LABEL_ENABLE=true
+            - WATCHTOWER_TIMEOUT=60s
+            - WATCHTOWER_POLL_INTERVAL=${DOCKERUPDATES_UPDATE_INTERVAL:-}
+            - WATCHTOWER_SCHEDULE=${DOCKERUPDATES_UPDATE_SCHEDULE_CRON:-}
+            - WATCHTOWER_UPDATE_ON_START=true
+            - WATCHTOWER_NOTIFICATIONS_LEVEL=${DOCKERUPDATES_NOTIFICATIONS_LEVEL:-info}
+            - WATCHTOWER_NOTIFICATIONS_DELAY=2
+            - WATCHTOWER_NOTIFICATIONS_HOSTNAME=${DOMAINNAME:-}
+            - WATCHTOWER_NOTIFICATION_TEMPLATE_FILE=${HOST_PATH_DOCKERUPDATES_NOTIFICATION_TEMPLATE:+/notification-template.txt}
+            - WATCHTOWER_NOTIFICATION_REPORT=${DOCKERUPDATES_NOTIFICATION_REPORT:-true}
+            - WATCHTOWER_NOTIFICATION_SPLIT_BY_CONTAINER=false
+            - WATCHTOWER_NOTIFICATION_TITLE_TAG=${COMPOSE_PROJECT_NAME:-}
+            - WATCHTOWER_NOTIFICATION_URL=${DOCKERUPDATES_NOTIFICATION_SURL_TELEGRAM:+${DOCKERUPDATES_NOTIFICATION_SURL_TELEGRAM}}${DOCKERUPDATES_NOTIFICATION_SURL_EMAIL:+,${DOCKERUPDATES_NOTIFICATION_SURL_EMAIL}}
+            - WATCHTOWER_NO_STARTUP_MESSAGE=true
+            - WATCHTOWER_INCLUDE_STOPPED=true
+            - WATCHTOWER_INCLUDE_RESTARTING=true
+            - WATCHTOWER_REVIVE_STOPPED=false
+            - WATCHTOWER_ROLLING_RESTART=false
+            - WATCHTOWER_CLEANUP=true
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - "${HOST_PATH_DOCKERUPDATES_NOTIFICATION_TEMPLATE:-${HOST_DOCKER_WORKING_DIR}/resources/telegram-notifier/dockerupdates-notification.tmpl}:/notification-template.txt:ro"
 
     #-----------------------------
     # 🚦 Reverse Proxy and TLS/SSL
@@ -163,6 +224,8 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - ${REVERSEPROXY_DASHBOARD:+telegram-notifier.service-uri=https://${DOMAINNAME}:8080}
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy Dashboard : routing CONDITIONAL ]=-
             # ⚠️ Be aware that when disabled, traefik will NOT read any of its own service `labels:` !
             - "traefik.enable=${REVERSEPROXY_DASHBOARD:-false}"
@@ -262,6 +325,8 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${DASHBOARD_HOST:+https://${DASHBOARD_HOST}.${DOMAINNAME}/waf}"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             - "traefik.enable=false"
         environment:
@@ -311,6 +376,8 @@ services:
         labels:
             # -=[ Servicealerting : OFF ]=-
             - "telegram-notifier.monitor=false"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
             - "traefik.docker.network=${NETWORK_HTTP_SERVICES:-loadbalance-http}"
@@ -369,6 +436,8 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${DOMAINNAME:+https://${DOMAINNAME}:${HTTPS_PORT:-443}}"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
             - "traefik.docker.network=${NETWORK_HTTP_SERVICES:-loadbalance-http}"
@@ -465,6 +534,8 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=localhost:${MARIADB_PORT:-3306}"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             - "traefik.enable=false"
         environment:
@@ -521,6 +592,8 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${DBMANAGER_HOST:+https://${DBMANAGER_HOST}.${DOMAINNAME}}"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
             - "traefik.docker.network=${NETWORK_HTTP_SERVICES:-loadbalance-http}"
@@ -572,6 +645,8 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${MAILSERVER_HOST:+${MAILSERVER_HOST}.}${DOMAINNAME}:${MAILSERVER_PORT_SMTP_INTERNAL:-25}"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             # 📖 HOWTO See docker-mailserver.github.io/docker-mailserver/v14.0/examples/tutorials/mailserver-behind-proxy/
             - "traefik.enable=true"
@@ -667,6 +742,8 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${IRC_HOST:+irc://${IRC_HOST}.${DOMAINNAME}:${IRC_PORT:-6667}}"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
             - "traefik.docker.network=${NETWORK_TCP_SERVICES:-loadbalance-tcp}"
@@ -740,6 +817,8 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=/join #quiz"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             - "traefik.enable=false"
         environment:
@@ -779,6 +858,10 @@ services:
         networks:
             - information-superhighway
         labels:
+            # -=[ Servicealerting : OFF ]=-
+            - "telegram-notifier.monitor=false"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             - "traefik.enable=false"
         environment:
@@ -862,6 +945,8 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - ${STOCKTICKER_SYMBOLS:+telegram-notifier.service-uri=Symbols ${STOCKTICKER_SYMBOLS:-}}
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             - "traefik.enable=false"
         environment:
@@ -908,6 +993,8 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${KEEPASS_HOST:+sftp -P ${KEEPASS_PORT_SFTP:-2222} ${KEEPASS_SFTP_USER}@${KEEPASS_HOST}.${DOMAINNAME}}"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy : routing ON ]=-
             - "traefik.enable=true"
             - "traefik.docker.network=${NETWORK_TCP_SERVICES:-loadbalance-tcp}"
@@ -956,6 +1043,8 @@ services:
             - "telegram-notifier.chat-id=${TELEGRAM_BOT_SERVICEALERTS_CHATID:-}"
             - "telegram-notifier.topic-id=${TELEGRAM_BOT_SERVICEALERTS_CHATTOPICID:-}"
             - "telegram-notifier.service-uri=${QUAKE3_HOST:+/connect ${QUAKE3_HOST}.${DOMAINNAME}:${QUAKE3_PORT:-27960}}"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
             # -=[ traefik Reverse Proxy : routing OFF ]=-
             # ℹ️ Not using traefik, because: «There must be one (and only one!) UDP service referenced per UDP router!»
             - "traefik.enable=false"
@@ -978,6 +1067,11 @@ services:
         security_opt:
             - "no-new-privileges=true"
         network_mode: "none"
+        labels:
+            # -=[ Servicealerting : OFF ]=-
+            - "telegram-notifier.monitor=false"
+            # -=[ Dockerupdates ]=-
+            - "com.centurylinklabs.watchtower.enable=true"
         environment:
             - GIT_REPO=${WEBSITE_GIT_REPO:-https://github.com/zorgch/zorg-code}
             - GIT_BRANCH=${WEBSITE_GIT_BRANCH:-main}
