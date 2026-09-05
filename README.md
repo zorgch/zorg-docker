@@ -404,6 +404,7 @@ Copy the template config from the repo to your `HOST_PATH_IRC_IRCD_CONFIG_FILES`
 # Generate a bcrypt hash for each oper password:
 docker exec -ti PROJECTNAME-ircdserver /ircd-bin/ergo genpasswd
 ```
+<sup>(or using an online tool like [bcrypt-generator](https://bcrypt-generator.com). Make sure to set matching bcrypt lenght!)</sup>
 
 Then add `opers:` to the `ircd.yaml` config-file:
 

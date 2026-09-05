@@ -40,6 +40,8 @@ server:
     motd-formatting: true
 
     listeners:
+        # Internal Docker-only, no PROXY protocol, no TLS
+        ":6668": {}
         # Plaintext IRC on all interfaces (required for TCP passthrough)
         ":6667":
             proxy: true
