@@ -56,7 +56,6 @@ filters:
          "crowdsecurity/http-bf",
          "crowdsecurity/http-cve-probing",
          "crowdsecurity/http-sqli-probing",
-         "crowdsecurity/vpatch-env-access",
          "crowdsecurity/vpatch-git-config"
        ]
 decisions:
@@ -68,8 +67,8 @@ on_success: break
 
 ---
 
-# -=[ MEDIUM: Targeted Sensitive Probing ]=-
-# Covers: sensitive file enumeration
+# -=[ MEDIUM: Targeted Sensitive Probing + Routine Env Scanning ]=-
+# Covers: sensitive file enumeration, .env/.git mass scanning (too noisy for Telegram)
 # → Medium ban (4h) + Email summary only (less urgent, batched)
 name: medium_ip_remediation
 #debug: true
@@ -79,13 +78,13 @@ filters:
     && Alert.GetScope() == "Ip"
     && Alert.Scenario in [
          "crowdsecurity/http-sensitive-files",
-         "crowdsecurity/http-crawl-non_statics"
+         "crowdsecurity/http-crawl-non_statics",
+         "crowdsecurity/vpatch-env-access"
        ]
 decisions:
   - type: ban
     duration: 4h
-notifications:
-  - email_summary
+# no notifications — routine automated scanning, not actionable
 on_success: break
 
 ---
@@ -101,6 +100,7 @@ decisions:
   - type: ban
     duration: 6h
 notifications:
+  - http_telegram_summary
   - email_summary
 on_success: break
 
