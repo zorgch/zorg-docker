@@ -561,7 +561,7 @@ Some single services have their own profile, in order to prevent them from start
 | Profile        | Applicablae Docker Services          | Example Usage                  |
 | -------------- | ------------------------------------ | -------------------------------|
 | `all`          | All general services                 | `--profile all`                |
-| `setup`        | `sslcerts` `postfix-smtp`            | `--profile setup`              |
+| `setup`        | `sslcerts` `dockerupdates` `postfix-smtp` | `--profile setup`         |
 | `status`       | `servicealerts` `dockerupdates` `dashboard` `reverseproxy` `waf` `waf-dashboard` | `--profile status` |
 | `webserver`    | `servicealerts` `dashboard` `reverseproxy` `waf` `waf-dashboard` `website` `db` `db-manager` `postfix-smtp` | `--profile webserver` |
 | `irc`          | `servicealerts` `dashboard` `reverseproxy` `waf` `irc` `irc-quizbot` `irc-telegram-bridge` | `--profile irc` |
