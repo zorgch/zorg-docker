@@ -31,8 +31,16 @@ under certain conditions; see the LICENSE.'
 
 
 ########## Install libraries & extensions ##########
+# FIX for deprecated Debian image | E: Failed to fetch http://deb.debian.org/debian-security/pool/updates/main/ 404 Not Found
+# Replace the main mirror and the security mirror with the archive mirror
+sed -i 's/deb.debian.org/archive.debian.org/g' /etc/apt/sources.list
+sed -i 's/security.debian.org/archive.debian.org/g' /etc/apt/sources.list
+# Remove the security-specific lines (they cause 404s on archive)
+sed -i '/security/d' /etc/apt/sources.list
+
+
 # Note: some are required due to dependencies = always installed!
-apt-get update -qq && apt-get install -y -qq \
+apt-get update -o Acquire::Check-Valid-Until=false -qq && apt-get install -y -qq \
     cron git msmtp msmtp-mta apache2-dev libmaxminddb0 libmaxminddb-dev libzip-dev \
     ${INSTALL_APT_GET:-} \
     --no-install-recommends \
