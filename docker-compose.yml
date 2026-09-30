@@ -60,10 +60,7 @@ services:
     #--------------------------------
     servicealerts:
         profiles: [ "all", "status", "webserver", "mailserver", "irc", "keepass", "quake" ]
-        #image: lorcas/docker-telegram-notifier:latest // TODO ℹ️ Temporarily DISABLED until PR merged
-        build:
-            context: https://github.com/oliveratgithub/docker-telegram-notifier.git
-            dockerfile: Dockerfile
+        image: lorcas/docker-telegram-notifier:latest
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}notifier
         restart: on-failure:1
@@ -138,7 +135,7 @@ services:
     # 🔄 Docker image auto-updater
     #-----------------------------
     dockerupdates:
-        profiles: [ "all", "status" ]
+        profiles: [ "all", "setup", "status" ]
         image: nickfedor/watchtower:${WATCHTOWER_VERSION:-latest}
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}watchtower

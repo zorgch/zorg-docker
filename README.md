@@ -404,6 +404,7 @@ Copy the template config from the repo to your `HOST_PATH_IRC_IRCD_CONFIG_FILES`
 # Generate a bcrypt hash for each oper password:
 docker exec -ti PROJECTNAME-ircdserver /ircd-bin/ergo genpasswd
 ```
+<sup>(or using an online tool like [bcrypt-generator](https://bcrypt-generator.com). Make sure to set matching bcrypt lenght!)</sup>
 
 Then add `opers:` to the `ircd.yaml` config-file:
 
@@ -560,7 +561,7 @@ Some single services have their own profile, in order to prevent them from start
 | Profile        | Applicablae Docker Services          | Example Usage                  |
 | -------------- | ------------------------------------ | -------------------------------|
 | `all`          | All general services                 | `--profile all`                |
-| `setup`        | `sslcerts` `postfix-smtp`            | `--profile setup`              |
+| `setup`        | `sslcerts` `dockerupdates` `postfix-smtp` | `--profile setup`         |
 | `status`       | `servicealerts` `dockerupdates` `dashboard` `reverseproxy` `waf` `waf-dashboard` | `--profile status` |
 | `webserver`    | `servicealerts` `dashboard` `reverseproxy` `waf` `waf-dashboard` `website` `db` `db-manager` `postfix-smtp` | `--profile webserver` |
 | `irc`          | `servicealerts` `dashboard` `reverseproxy` `waf` `irc` `irc-quizbot` `irc-telegram-bridge` | `--profile irc` |

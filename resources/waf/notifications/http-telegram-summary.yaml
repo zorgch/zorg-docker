@@ -16,7 +16,7 @@ log_level: info
 
 # -=[ Batching / Grouping ]=-
 # Send at most one message per group_wait window, OR immediately when group_threshold alerts accumulate
-group_wait: 1h
+group_wait: 6h
 group_threshold: 25
 
 # -=[ Telegram Bot API endpoint ]=-
@@ -47,6 +47,8 @@ format: |
     "text": "⚔️ <b>waf({{ env "DOCKER_STACK" }})</b> {{ len . }} ATTACKS!
   {{- range . }}
   {{ range .Decisions }}{{ .Type }} {{ .Duration }}{{ end }} for {{ .EventsCount }}x violating <code>{{ .Scenario | js }}</code>
-  <span class=\"tg-spoiler\">{{ .Source.IP | js }}</span>{{ if .Source.Cn }} from {{ .Source.Cn | js }}{{ end }}{{ if .Source.AsName }} ({{ .Source.AsName | js }}){{ end }}
+  <span class=\"tg-spoiler\">{{ .Source.IP | js }}</span>{{ if .Source.Cn }} from {{ .Source.Cn | js }}{{ end }}
+  {{ if .Source.AsName }} ({{ .Source.AsName | js }}){{ end }}
+
   {{- end }}"
   }
