@@ -1,41 +1,30 @@
 {{- if .Report -}}
   {{- with .Report -}}
-    {{- $summary := printf "📦 <b>%d</b> Container | 📥 <b>%d</b> Updates | 🔁 <b>%d</b> Restarts | ❌ <b>%d</b> Errors" (len .Scanned) (len .Updated) (len .Restarted) (len .Failed) -}}
-    {{- printf "\n%s\n\n" $summary -}}
+    {{- if (or .Updated .Failed) -}}
+      {{- $summary := printf "📦 <b>%d</b> Scanned | 📥 <b>%d</b> Updated | ❌ <b>%d</b> Failed" (len .Scanned) (len .Updated) (len .Failed) -}}
+      {{- printf "\n%s\n\n" $summary -}}
 
-    {{- if (or .Updated .Restarted .Failed .Skipped) -}}
+      {{- if (or .Updated .Fresh .Failed .Skipped) -}}
 <blockquote expandable>
-      {{- range .Updated}}
-        {{- printf "\n📥 Updated <b>%s</b>" .ImageName -}}
-      {{- end -}}
+        {{- range .Updated}}
+          {{- printf "\n📥 Updated <b>%s</b> (%s)" .Name .ImageName -}}
+        {{- end -}}
 
-      {{/* Section: Restarts */}}
-      {{- range .Restarted}}
-        {{- printf "\n🔁 Restarted <b>%s</b>" .Name -}}
-      {{- end -}}
+        {{/* Section: Errors/Skipped */}}
+        {{- range .Failed}}
+          {{- printf "\n⚠️ <b>%s</b>: %s" .Name .Error -}}
+        {{- end -}}
 
-      {{/* Section: Errors/Skipped */}}
-      {{- range .Failed}}
-        {{- printf "\n⚠️ <b>%s</b>: %s" .Name .Error -}}
-      {{- end -}}
-
-      {{- range .Skipped}}
-        {{- printf "\n⏩ <b>%s</b>: %s" .Name .Error -}}
-      {{- end -}}
+        {{- range .Skipped}}
+          {{- printf "\n⏩ Skipped <b>%s</b>: %s" .Name .Error -}}
+        {{- end -}}
 </blockquote>
-    {{- end -}}
+      {{- end -}}
 
-    {{/* Final Status Footer */}}
-    {{- if (or .Updated .Restarted .Failed) -}}
-      {{- printf "\n\n✅ <b>All DONE!</b>\n" -}}
+      {{/* Final Status Footer */}}
+      {{"\n\n"}}Check <a href="https://dockerstatus.zorg.ch/">Status Dashboard</a>
     {{- end -}}
-
-    {{"\n"}}Check <a href="https://dockerstatus.zorg.ch/">Status Dashboard</a>
   {{- end -}}
-{{/*- if .Entries -}} // DISABLED
-
-{{"\n\n"}}Logs:{{"\n"}} // DISABLED
-{{- end -}} // DISABLED
-{{range .Entries -}}{{.Time.Format "2006-01-02T15:04:05Z07:00"}} [{{.Level}}] {{.Message}}{{"\n"}} // DISABLED
-{{- end -*/}}
+{{- else -}}
+  {{- range .Entries -}}{{.Message}}{{"\n"}}{{- end -}}
 {{- end -}}
