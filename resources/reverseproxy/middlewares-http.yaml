@@ -92,8 +92,8 @@ http:
           crowdsecAppsecEnabled: true
           crowdsecAppsecHost: "waf:7422"
           # ℹ️ fail-open: requests pass through if AppSec returns error or is unreachable
-          crowdsecAppsecFailureBlock: false
-          crowdsecAppsecUnreachableBlock: false
+          crowdsecAppsecFailureBlock: true
+          crowdsecAppsecUnreachableBlock: true
           # ℹ️ Bypass CrowdSec checks for trusted local/Docker IPs
           clientTrustedIPs:
             # IPv4 - HOST
