@@ -184,7 +184,7 @@ Here's an overview of the underlying Docker images used for the Docker Services,
 | 🚦 `reverseproxy`  | `traefik`<br>`crowdsec-bouncer-traefik-plugin` | [Docs](https://doc.traefik.io/traefik/)<br>[Plugin](https://plugins.traefik.io/plugins/6335346ca4caa9ddeffda116/crowdsec-bouncer-traefik-plugin) |
 | 🛡️ `waf`           | `crowdsecurity/crowdsec`  | [Docs](https://docs.crowdsec.net/u/getting_started/installation/docker/) |
 | ☣️ `waf-dashboard` | `ghcr.io/theduffman85/crowdsec-web-ui` | [GitHub](https://github.com/TheDuffman85/crowdsec-web-ui) |
-| 🌐 `website`       | `php`                     | [Docker Hub](https://hub.docker.com/_/php) |
+| 🌐 `website`       | `php`                     | [GitHub](https://github.com/mpyw/php-eol-CVE-2026-109618-109619) |
 | 💽 `db`            | `mariadb`                 | [Docs](https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/) |
 | 👨‍💻 `db-manager`    | `adminer`                 | [Docs](https://hub.docker.com/_/adminer/#how-to-use-this-image) |
 | 📧 `postfix-smtp`  | `mailserver/docker-mailserver` | [Docs](https://docker-mailserver.github.io/docker-mailserver/) |

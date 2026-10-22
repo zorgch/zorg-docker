@@ -405,7 +405,8 @@ services:
     #----------------------
     website:
         profiles: [ "all", "webserver" ]
-        image: php:${PHP_VERSION:-8.1}-apache
+        #image: php:${PHP_VERSION:-8.1}-apache // Disabled because 7.4 is EOL, using innofficial patched:
+        image: ghcr.io/mpyw/php-eol-cve-2026-109618-109619:${PHP_VERSION:-8.1}-apache
         platform: ${OS_PLATFORM:-linux/amd64}
         container_name: ${COMPOSE_PROJECT_NAME:+${COMPOSE_PROJECT_NAME}-}website
         restart: on-failure:1
