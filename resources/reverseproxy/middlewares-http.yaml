@@ -83,15 +83,15 @@ http:
           logLevel: INFO
           crowdsecMode: stream
           updateIntervalSeconds: 600
-          # ℹ️ Never block traffic if LAPI is unreachable (fail-open)
-          updateMaxFailure: -1
+          # ℹ️ Block traffic if LAPI is unreachable (fail-open = -1)
+          updateMaxFailure: 1
           metricsUpdateIntervalSeconds: 0
           # ℹ️ "waf" = Docker Compose service name, resolvable within the shared Docker network
           crowdsecLapiHost: "waf:8080"
           crowdsecLapiKey: "{{ env "CROWDSEC_BOUNCER_KEY" }}"
           crowdsecAppsecEnabled: true
           crowdsecAppsecHost: "waf:7422"
-          # ℹ️ fail-open: requests pass through if AppSec returns error or is unreachable
+          # ℹ️ Requests don't pass through if AppSec returns error or is unreachable (fail-open = false)
           crowdsecAppsecFailureBlock: true
           crowdsecAppsecUnreachableBlock: true
           # ℹ️ Bypass CrowdSec checks for trusted local/Docker IPs
