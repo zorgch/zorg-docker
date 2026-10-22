@@ -40,8 +40,18 @@ sed -i '/security/d' /etc/apt/sources.list
 
 
 # Note: some are required due to dependencies = always installed!
-apt-get update -o Acquire::Check-Valid-Until=false -qq && apt-get install -y -qq \
-    cron git msmtp msmtp-mta apache2-dev libmaxminddb0 libmaxminddb-dev libzip-dev \
+#apt-get update -o Acquire::Check-Valid-Until=false -qq && apt-get install -y -qq \
+#    cron git msmtp msmtp-mta apache2-dev libmaxminddb0 libmaxminddb-dev libzip-dev \
+#    ${INSTALL_APT_GET:-} \
+#    --no-install-recommends \
+#    && rm -rf /var/lib/apt/lists/*
+apt-get update -o Acquire::Check-Valid-Until=false -qq
+apt-get install -y -qq git
+apt-get remove libssl1.1 || dpkg -r --force-depends libssl1.1
+apt-get install -y -qq libssl1.1 libssl-dev
+apt-get update -o Acquire::Check-Valid-Until=false -qq \
+    && apt-get install -y -qq \
+    cron msmtp msmtp-mta apache2-dev libmaxminddb0 libmaxminddb-dev libzip-dev \
     ${INSTALL_APT_GET:-} \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
@@ -124,7 +134,7 @@ echo "sendmail_path = /usr/sbin/sendmail -t" > /usr/local/etc/php/conf.d/mail.in
 # apache2: enable modules
 a2enmod headers
 a2enmod rewrite
-a2enmod maxminddb
+#a2enmod maxminddb
 
 
 ########## Clone the repository if it doesn't exist ##########
